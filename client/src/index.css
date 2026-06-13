@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mezzanine wordmark — self-hosted neon cursive (no runtime CDN dependency) */
+@font-face {
+  font-family: 'Mezz Script';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/pacifico.woff2') format('woff2');
+}
+
+/* Neon cursive wordmark. Layered text-shadow = glowing tube; the keyframe
+   gives it a subtle sign-flicker. `color` sets the inner tube hue. */
+.mezz-wordmark {
+  font-family: 'Mezz Script', cursive;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #eafcff;
+  text-shadow:
+    0 0 4px  #d6f7ff,
+    0 0 11px #00d4ff,
+    0 0 22px #00d4ff,
+    0 0 38px #00aaff,
+    0 0 64px #0077ff;
+  animation: mezzFlicker 6s infinite;
+}
+@keyframes mezzFlicker {
+  0%, 92%, 96%, 100% { opacity: 1; }
+  93%                { opacity: 0.72; }
+  94%                { opacity: 1; }
+  95%                { opacity: 0.85; }
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Courier New', 'Lucida Console', monospace;
+  background: #020818;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+canvas { display: block; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.2); border-radius: 2px; }
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

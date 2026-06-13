@@ -1,0 +1,19 @@
+{
+  "name": "k8s-dashboard",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "build": "npm --prefix client run build",
+    "dev": "concurrently -n build,server -c yellow,cyan \"npm --prefix client run build -- --watch\" \"node --watch src/server.js\""
+  },
+  "dependencies": {
+    "@kubernetes/client-node": "^1.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
