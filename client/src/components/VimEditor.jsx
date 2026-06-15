@@ -14,8 +14,8 @@ const khudTheme = EditorView.theme({
   '.cm-content': { fontFamily: "'Courier New', monospace", caretColor: '#00d4ff', padding: '8px 0' },
   '.cm-scroller': { fontFamily: "'Courier New', monospace", lineHeight: '1.6' },
   '&.cm-focused': { outline: 'none' },
-  '.cm-gutters': { backgroundColor: 'rgba(0,0,0,0.25)', color: '#2a4a6a', border: 'none', borderRight: '1px solid rgba(0,212,255,0.08)' },
-  '.cm-activeLineGutter': { backgroundColor: 'rgba(0,212,255,0.06)', color: '#5a8aaa' },
+  '.cm-gutters': { backgroundColor: 'rgba(0,0,0,0.25)', color: '#52789a', border: 'none', borderRight: '1px solid rgba(0,212,255,0.08)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgba(0,212,255,0.06)', color: '#84b0ce' },
   '.cm-activeLine': { backgroundColor: 'rgba(0,212,255,0.04)' },
   '.cm-cursor': { borderLeftColor: '#00d4ff' },
   // Block cursor in vim normal/visual mode. codemirror-vim injects a salmon (#ff9696)
@@ -35,8 +35,8 @@ const khudHighlight = HighlightStyle.define([
   { tag: [t.string, t.special(t.string)], color: '#7ee787' },
   { tag: [t.number], color: '#ffcc44' },
   { tag: [t.propertyName, t.definition(t.propertyName)], color: '#00d4ff' },
-  { tag: [t.comment], color: '#3a6a8a', fontStyle: 'italic' },
-  { tag: [t.punctuation, t.separator], color: '#5a8aaa' },
+  { tag: [t.comment], color: '#6298ba', fontStyle: 'italic' },
+  { tag: [t.punctuation, t.separator], color: '#84b0ce' },
   { tag: [t.invalid], color: '#ff4455' },
 ])
 

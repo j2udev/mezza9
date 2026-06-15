@@ -40,10 +40,15 @@ export function statusColor(status) {
 export const NS_COLORS = [
   '#00d4ff', '#aa55ff', '#ffaa00', '#00ffaa',
   '#ff4488', '#44aaff', '#ffdd00', '#88ffaa',
+  '#ff8844', '#55ddff', '#cc88ff', '#66ffcc',
 ]
 
-export function getNsColor(namespace, allNamespaces) {
-  const sorted = [...allNamespaces].sort()
-  const idx = sorted.indexOf(namespace)
-  return NS_COLORS[Math.max(idx, 0) % NS_COLORS.length]
+// Stable per-name color: a given namespace always maps to the same hue regardless of which
+// other namespaces happen to be present. (The old positional indexing made a namespace's
+// color shift whenever the set of namespaces changed — that's the "random colors" in #69.)
+export function getNsColor(namespace) {
+  if (!namespace) return '#2a4a6a'
+  let h = 0
+  for (let i = 0; i < namespace.length; i++) h = (Math.imul(31, h) + namespace.charCodeAt(i)) | 0
+  return NS_COLORS[Math.abs(h) % NS_COLORS.length]
 }

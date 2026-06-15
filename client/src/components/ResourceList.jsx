@@ -97,7 +97,7 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
       {showNsColumn && (
         <span style={{
           width: NS_COL_W, flexShrink: 0, fontSize: 10, letterSpacing: '0.08em',
-          color: '#4a7a9a', paddingRight: 8,
+          color: '#72a4c6', paddingRight: 8,
         }}>
           NAMESPACE
         </span>
@@ -107,7 +107,7 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
         title="Sort by name (Shift+N)"
         style={{
           flex: 1, fontSize: 10, letterSpacing: '0.08em', cursor: 'pointer',
-          color: nameActive ? '#00d4ff' : '#4a7a9a',
+          color: nameActive ? '#00d4ff' : '#72a4c6',
         }}
       >
         NAME<SortArrow active={nameActive} dir={sortDir} />
@@ -123,7 +123,7 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
             title={sk ? `Sort by ${sk}` : undefined}
             style={{
               width: widths[i], flexShrink: 0, fontSize: 10,
-              color: active ? '#00d4ff' : '#4a7a9a', letterSpacing: '0.08em',
+              color: active ? '#00d4ff' : '#72a4c6', letterSpacing: '0.08em',
               textAlign: last ? 'right' : 'left',
               paddingLeft: last ? 0 : 8,
               cursor: sk ? 'pointer' : 'default',
@@ -227,7 +227,7 @@ export function ResourceList() {
       <ColumnHeader resource={activeResource} sortKey={sortKey} sortDir={sortDir} onSort={setSort} showNsColumn={showNsColumn} />
 
       {displayItems.length === 0 && (
-        <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: 12, color: '#3a5a7a', fontFamily: 'inherit' }}>
+        <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: 12, color: '#5e88aa', fontFamily: 'inherit' }}>
           {faultsOnly ? `No ${displayName} with faults`
             : filter ? `No ${displayName} match "${filter}"`
             : `No ${displayName} found`}
@@ -235,7 +235,7 @@ export function ResourceList() {
       )}
 
       {groups.map(([ns, items]) => {
-        const nsColor = ns ? getNsColor(ns, allNamespaces) : '#2a4a6a'
+        const nsColor = ns ? getNsColor(ns) : '#52789a'
         return (
           <div key={ns || '__cluster__'}>
             {showNsHeaders && ns && (
@@ -258,7 +258,7 @@ export function ResourceList() {
                   animDelay={delay}
                   firstInGroup={showNsHeaders && !!ns && itemIdx === 0}
                   nsColumnWidth={showNsColumn ? NS_COL_W : 0}
-                  nsColor={showNsColumn && item.namespace ? getNsColor(item.namespace, allNamespaces) : null}
+                  nsColor={showNsColumn && item.namespace ? getNsColor(item.namespace) : null}
                   onSelect={() => setSelected(isSelected ? null : item.id)}
                   onToggleMulti={() => toggleMultiSelect(item.id)}
                 />

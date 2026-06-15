@@ -26,6 +26,10 @@ fi
 
 # Start backend — nohup detaches from the shell session so VS Code
 # devcontainer reconnects don't SIGHUP-kill the process.
+# Point the server at the devbox-provided kubectl/helm (the container image instead
+# bundles them on PATH). Set MEZZ_DEMO=1 here if you want the mock cluster locally.
+export MEZZ_KUBECTL="$REPO/.devbox/nix/profile/default/bin/kubectl"
+export MEZZ_HELM="$REPO/.devbox/nix/profile/default/bin/helm"
 echo "  Starting server → http://localhost:3001"
 cd "$REPO"
 nohup $NODE src/server.js >> /tmp/k8s-backend.log 2>&1 &

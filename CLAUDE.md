@@ -297,11 +297,27 @@ combined helm Values USER/ALL view with fixed yaml tabbing (#36), port-forward v
 macros, ex commands). Added VimEditor.jsx + VimHelpOverlay.jsx (`?`), deleted lib/vim.js.
 yaml/json syntax highlighting in the editor lands #62 partially (read views still custom).
 
+**Session 15:** #56/#65/#68/#69 (polish). Helm-history is j/k-navigable, `v` peeks the
+selected revision's values; the peek has a USER/ALL footer toggle + `Tab`. Edit-apply errors
+render in a scrollable/dismissible red banner above the footer (full multi-line kubectl msg)
+instead of being crammed into the footer. Main top bar + inspect/helm read-view modals now
+have an always-visible top-right search box (`/` focuses); the bottom-bar filter morph/pinned
+pill and the modal's inline bottom search bar were removed. Namespace colors are a stable
+name-hash (`getNsColor(ns)`); sidebar color = resource category (one accent per section).
+
+**Session 16:** #70/#71. The top-right search box is now dual-mode with a `/`|`:` toggle:
+`/` = string filter, `:` = resource picker (folds in the old bottom-left command bar). Resource
+mode shows a dropdown of all resources with **alias-aware** autocomplete (typing "svc"→Services),
+Tab cycle, Enter/click select. Store: `filterMode` ('str'|'res') + `submitCommand(raw)` returns
+success; useKeys `:`/`/` set the mode and yield to the box while focused. #71 contrast pass:
+the dim blue-gray TEXT tiers (#3a6070/#3a5a7a/#3a6a8a/#2a4a6a/etc.) were bumped brighter app-wide
+and the base bg lifted #020818→#0a1220 (was dark-on-dark). A full theme system / light mode is
+still #14.
+
 **Remaining:**
-- #14 Custom theme / company branding
+- #14 Custom theme / company branding (also the home for "test various contrasts" / light mode)
 - #15 In-cluster deploy
 - #16 Multi-cluster support
 - #17 Single binary packaging
-- #46 Faster auto-refresh · #51 filter indicator · #53 port-forward tracking table
-- #56 helm-history `v` values · #58 actions palette scroll-only · #59 multi-container logs 400
-- #60 filter tab-autocomplete · #62 syntax highlighting in read views (editor done)
+- #46 Faster auto-refresh · #53 port-forward tracking table
+- #62 syntax highlighting in read views (editor done) · #71 deeper contrast/theming (first pass done)

@@ -1,67 +1,71 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 
+// One accent color per section — color now encodes the resource *category* instead of
+// being seemingly-random per item (#69). The highlight/active color a row gets is its
+// group's color, so clicking around the sidebar reads as a coherent scheme.
+const CUSTOM_COLOR = '#cc88ff'
 const GROUPS = [
   {
-    label: 'WORKLOADS',
+    label: 'WORKLOADS', color: '#00d4ff',
     items: [
-      { key: 'pods',         label: 'Pods',         color: '#00d4ff' },
-      { key: 'deployments',  label: 'Deployments',  color: '#aa55ff' },
-      { key: 'replicasets',  label: 'ReplicaSets',  color: '#aa55ff' },
-      { key: 'statefulsets', label: 'StatefulSets', color: '#aa55ff' },
-      { key: 'daemonsets',   label: 'DaemonSets',   color: '#aa55ff' },
-      { key: 'jobs',         label: 'Jobs',         color: '#ffaa00' },
-      { key: 'cronjobs',     label: 'CronJobs',     color: '#ffaa00' },
-      { key: 'hpa',          label: 'HPA',          color: '#ffaa00' },
-      { key: 'pdb',          label: 'PDB',          color: '#ffaa00' },
+      { key: 'pods',         label: 'Pods'         },
+      { key: 'deployments',  label: 'Deployments'  },
+      { key: 'replicasets',  label: 'ReplicaSets'  },
+      { key: 'statefulsets', label: 'StatefulSets' },
+      { key: 'daemonsets',   label: 'DaemonSets'   },
+      { key: 'jobs',         label: 'Jobs'         },
+      { key: 'cronjobs',     label: 'CronJobs'     },
+      { key: 'hpa',          label: 'HPA'          },
+      { key: 'pdb',          label: 'PDB'          },
     ],
   },
   {
-    label: 'NETWORK',
+    label: 'NETWORK', color: '#ffaa00',
     items: [
-      { key: 'services',        label: 'Services',         color: '#ffaa00' },
-      { key: 'ingresses',       label: 'Ingresses',        color: '#ffaa00' },
-      { key: 'networkpolicies', label: 'Network Policies', color: '#ff4488' },
+      { key: 'services',        label: 'Services'         },
+      { key: 'ingresses',       label: 'Ingresses'        },
+      { key: 'networkpolicies', label: 'Network Policies' },
     ],
   },
   {
-    label: 'CONFIG',
+    label: 'CONFIG', color: '#aa55ff',
     items: [
-      { key: 'configmaps',     label: 'ConfigMaps',      color: '#44aaff' },
-      { key: 'secrets',        label: 'Secrets',         color: '#ff4488' },
-      { key: 'serviceaccounts',label: 'Svc Accounts',    color: '#44aaff' },
-      { key: 'resourcequotas', label: 'Resource Quotas', color: '#44aaff' },
+      { key: 'configmaps',     label: 'ConfigMaps'      },
+      { key: 'secrets',        label: 'Secrets'         },
+      { key: 'serviceaccounts',label: 'Svc Accounts'    },
+      { key: 'resourcequotas', label: 'Resource Quotas' },
     ],
   },
   {
-    label: 'STORAGE',
+    label: 'STORAGE', color: '#88ffaa',
     items: [
-      { key: 'pvcs',          label: 'PVCs',               color: '#88ffaa' },
-      { key: 'pvs',           label: 'Persistent Volumes', color: '#88ffaa' },
-      { key: 'storageclasses',label: 'Storage Classes',    color: '#88ffaa' },
+      { key: 'pvcs',          label: 'PVCs'               },
+      { key: 'pvs',           label: 'Persistent Volumes' },
+      { key: 'storageclasses',label: 'Storage Classes'    },
     ],
   },
   {
-    label: 'RBAC',
+    label: 'RBAC', color: '#ff8844',
     items: [
-      { key: 'roles',               label: 'Roles',                color: '#ff8844' },
-      { key: 'clusterroles',        label: 'Cluster Roles',        color: '#ff8844' },
-      { key: 'rolebindings',        label: 'Role Bindings',        color: '#ff8844' },
-      { key: 'clusterrolebindings', label: 'Cluster Role Bindings',color: '#ff8844' },
+      { key: 'roles',               label: 'Roles'                },
+      { key: 'clusterroles',        label: 'Cluster Roles'        },
+      { key: 'rolebindings',        label: 'Role Bindings'        },
+      { key: 'clusterrolebindings', label: 'Cluster Role Bindings'},
     ],
   },
   {
-    label: 'CLUSTER',
+    label: 'CLUSTER', color: '#44aaff',
     items: [
-      { key: 'nodes',      label: 'Nodes',      color: '#00d4ff' },
-      { key: 'namespaces', label: 'Namespaces', color: '#00d4ff' },
-      { key: 'events',     label: 'Events',     color: '#ffcc44' },
+      { key: 'nodes',      label: 'Nodes'      },
+      { key: 'namespaces', label: 'Namespaces' },
+      { key: 'events',     label: 'Events'     },
     ],
   },
   {
-    label: 'HELM',
+    label: 'HELM', color: '#00ffaa',
     items: [
-      { key: 'helmreleases', label: 'Releases', color: '#00ffaa' },
+      { key: 'helmreleases', label: 'Releases' },
     ],
   },
 ]
@@ -80,10 +84,10 @@ function SidebarItem({ isActive, color, label, count, onClick }) {
       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
     >
-      <span style={{ flex: 1, fontSize: 11, color: isActive ? color : '#5a8aaa', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <span style={{ flex: 1, fontSize: 11, color: isActive ? color : '#84b0ce', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {label}
       </span>
-      <span style={{ fontSize: 10, color: isActive ? `${color}99` : '#3a6a8a', fontFamily: 'inherit', minWidth: 20, textAlign: 'right', flexShrink: 0 }}>
+      <span style={{ fontSize: 10, color: isActive ? `${color}99` : '#6298ba', fontFamily: 'inherit', minWidth: 20, textAlign: 'right', flexShrink: 0 }}>
         {count ?? 0}
       </span>
     </div>
@@ -96,7 +100,7 @@ function SectionLabel({ children, collapsed, onToggle }) {
       onClick={onToggle}
       style={{
         padding: '6px 8px 4px', fontSize: 9, letterSpacing: '0.14em',
-        color: '#4a8aaa', fontWeight: 'bold', userSelect: 'none',
+        color: '#72b0d0', fontWeight: 'bold', userSelect: 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         cursor: 'pointer',
         background: 'rgba(0,212,255,0.04)',
@@ -105,7 +109,7 @@ function SectionLabel({ children, collapsed, onToggle }) {
         marginTop: 2,
       }}
       onMouseEnter={e => e.currentTarget.style.color = '#6aaac8'}
-      onMouseLeave={e => e.currentTarget.style.color = '#4a8aaa'}
+      onMouseLeave={e => e.currentTarget.style.color = '#72b0d0'}
     >
       <span>{children}</span>
       <span style={{ fontSize: 8, opacity: 0.6 }}>{collapsed ? '›' : '˅'}</span>
@@ -159,7 +163,7 @@ export function Sidebar() {
     <div style={{
       position: 'absolute', top: 44, bottom: 36, left: 0,
       width: collapsed ? 36 : 200,
-      background: 'rgba(2, 8, 24, 0.97)',
+      background: 'rgba(12,20,36,0.97)',
       borderRight: '1px solid rgba(0, 212, 255, 0.07)',
       display: 'flex', flexDirection: 'column',
       transition: 'width 0.18s ease', overflow: 'hidden',
@@ -173,11 +177,11 @@ export function Sidebar() {
           justifyContent: collapsed ? 'center' : 'flex-end',
           paddingRight: collapsed ? 0 : 10,
           cursor: 'pointer', borderBottom: '1px solid rgba(0,212,255,0.06)',
-          color: '#3a5a7a', fontSize: 14, lineHeight: 1,
+          color: '#5e88aa', fontSize: 14, lineHeight: 1,
           flexShrink: 0, transition: 'color 0.12s', userSelect: 'none',
         }}
         onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
-        onMouseLeave={e => e.currentTarget.style.color = '#3a5a7a'}
+        onMouseLeave={e => e.currentTarget.style.color = '#5e88aa'}
         title={collapsed ? 'Expand sidebar (ctrl+b)' : 'Collapse sidebar (ctrl+b)'}
       >
         {collapsed ? '›' : '‹'}
@@ -192,11 +196,11 @@ export function Sidebar() {
                 <SectionLabel collapsed={isGroupCollapsed} onToggle={() => toggleGroup(group.label)}>
                   {group.label}
                 </SectionLabel>
-                {!isGroupCollapsed && group.items.map(({ key, label, color }) => (
+                {!isGroupCollapsed && group.items.map(({ key, label }) => (
                   <SidebarItem
                     key={key}
                     isActive={activeResource === key}
-                    color={color} label={label} count={counts[key]}
+                    color={group.color} label={label} count={counts[key]}
                     onClick={() => setActiveResource(key)}
                   />
                 ))}
@@ -222,17 +226,17 @@ export function Sidebar() {
                     style={{
                       display: 'flex', alignItems: 'center', height: 28,
                       paddingLeft: 16, paddingRight: 8, cursor: 'pointer',
-                      borderLeft: `2px solid ${isActive ? '#aa55ff' : 'transparent'}`,
-                      background: isActive ? '#aa55ff12' : 'transparent',
+                      borderLeft: `2px solid ${isActive ? CUSTOM_COLOR : 'transparent'}`,
+                      background: isActive ? `${CUSTOM_COLOR}12` : 'transparent',
                       transition: 'background 0.12s', userSelect: 'none',
                     }}
                     onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                   >
-                    <span style={{ flex: 1, fontSize: 11, color: isActive ? '#aa55ff' : '#5a8aaa', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ flex: 1, fontSize: 11, color: isActive ? CUSTOM_COLOR : '#84b0ce', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {crd.kind}
                     </span>
-                    <span style={{ fontSize: 9, color: '#3a6a8a', fontFamily: 'monospace', flexShrink: 0 }}>
+                    <span style={{ fontSize: 9, color: '#6298ba', fontFamily: 'monospace', flexShrink: 0 }}>
                       {crd.group.split('.')[0]}
                     </span>
                   </div>

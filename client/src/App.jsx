@@ -3,6 +3,7 @@ import { HUD } from './components/HUD'
 import { Sidebar } from './components/Sidebar'
 import { LoadingScreen } from './components/LoadingScreen'
 import { ResourceList } from './components/ResourceList'
+import { NotConnected } from './components/NotConnected'
 import { DeleteModal } from './components/DeleteModal'
 import { useWS } from './hooks/useWS'
 import { useKeys } from './hooks/useKeys'
@@ -14,7 +15,7 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#020818', padding: 40 }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a1220', padding: 40 }}>
           <pre style={{ color: '#ff4455', fontFamily: 'monospace', fontSize: 12, whiteSpace: 'pre-wrap', maxWidth: 800 }}>
             {String(this.state.error)}{'\n'}{this.state.error?.stack}
           </pre>
@@ -38,7 +39,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div style={{ width: '100vw', height: '100vh', background: '#020818', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ width: '100vw', height: '100vh', background: '#0a1220', overflow: 'hidden', position: 'relative' }}>
         <Sidebar />
         <div style={{
           position: 'absolute',
@@ -48,6 +49,7 @@ export default function App() {
           transition: 'left 0.18s ease, right 0.2s ease',
         }}>
           <ResourceList />
+          <NotConnected />
         </div>
         <HUD panelWidth={PANEL_W} />
         <DeleteModal />

@@ -155,25 +155,25 @@ export function HelpModal() {
         onClick={e => e.stopPropagation()}
         style={{
           width: 'min(820px, 94vw)', maxHeight: '86vh', overflowY: 'auto',
-          borderRadius: 8, background: 'rgba(2,10,22,0.98)',
+          borderRadius: 8, background: 'rgba(12,22,38,0.98)',
           border: '1px solid rgba(0,212,255,0.28)', boxShadow: '0 0 50px rgba(0,212,255,0.12)',
         }}
       >
         {/* Header */}
         <div style={{
           padding: '12px 18px', borderBottom: '1px solid rgba(0,212,255,0.18)',
-          position: 'sticky', top: 0, background: 'rgba(2,10,22,0.98)', zIndex: 1,
+          position: 'sticky', top: 0, background: 'rgba(12,22,38,0.98)', zIndex: 1,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <span style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: '0.16em', color: '#00d4ff' }}>
               KEYBOARD SHORTCUTS
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 10, color: '#1e3a52' }}>j/k · / filter · esc close</span>
+              <span style={{ fontSize: 10, color: '#4a6e8e' }}>j/k · / filter · esc close</span>
               <button onClick={() => setHelpOpen(false)}
-                style={{ fontSize: 18, lineHeight: 1, color: '#3a5a7a', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+                style={{ fontSize: 18, lineHeight: 1, color: '#5e88aa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
                 onMouseEnter={e => e.target.style.color = '#c0d8f0'}
-                onMouseLeave={e => e.target.style.color = '#3a5a7a'}
+                onMouseLeave={e => e.target.style.color = '#5e88aa'}
               >×</button>
             </div>
           </div>
@@ -200,7 +200,7 @@ export function HelpModal() {
           gap: '8px 28px', padding: '16px 22px',
         }}>
           {grouped.length === 0 && (
-            <div style={{ padding: '6px 0', fontSize: 11, color: '#3a5a7a', fontStyle: 'italic' }}>
+            <div style={{ padding: '6px 0', fontSize: 11, color: '#5e88aa', fontStyle: 'italic' }}>
               No shortcuts match "{filter}".
             </div>
           )}
@@ -226,7 +226,7 @@ export function HelpModal() {
                       {k.split(' / ').map((part, i, arr) => (
                         <span key={part}>
                           <Kbd>{part}</Kbd>
-                          {i < arr.length - 1 && <span style={{ color: '#3a5a7a', margin: '0 2px' }}>/</span>}
+                          {i < arr.length - 1 && <span style={{ color: '#5e88aa', margin: '0 2px' }}>/</span>}
                         </span>
                       ))}
                     </span>

@@ -125,7 +125,7 @@ function YamlLine({ line, search, isCurrent }) {
   const m = line.match(/^(\s*-?\s*)([^:\s][^:]*?):\s*(.*)$/)
   if (m) {
     const [, indent, key, val] = m
-    const valColor = val === '' ? '#667788'
+    const valColor = val === '' ? '#8a9cae'
       : (val === 'null' || val === '~') ? '#aa77ff'
       : (val === 'true' || val === 'false') ? '#aa77ff'
       : /^-?\d/.test(val) ? '#ffa040'
@@ -133,9 +133,9 @@ function YamlLine({ line, search, isCurrent }) {
       : '#c0d8f0'
     return (
       <div style={base}>
-        <span style={{ color: '#667788' }}>{indent}</span>
+        <span style={{ color: '#8a9cae' }}>{indent}</span>
         <span style={{ color: '#5ac8fa' }}>{search ? highlight(key, search, isCurrent) : key}</span>
-        <span style={{ color: '#667788' }}>:</span>
+        <span style={{ color: '#8a9cae' }}>:</span>
         {val && <span style={{ color: valColor }}>{search ? highlight(` ${val}`, search, isCurrent) : ` ${val}`}</span>}
       </div>
     )
@@ -164,7 +164,7 @@ function ContentLines({ lines, kind, search, lineToMatchIdx, matchIndex, showLin
             ref={isMatch ? (el => { if (el) matchRefs.current[mn] = el }) : undefined}
             style={{ display: 'flex' }}>
             {showLineNumbers && (
-              <span style={{ width: 36, flexShrink: 0, textAlign: 'right', paddingRight: 10, color: '#2a4a6a', userSelect: 'none', fontSize: 10 }}>
+              <span style={{ width: 36, flexShrink: 0, textAlign: 'right', paddingRight: 10, color: '#52789a', userSelect: 'none', fontSize: 10 }}>
                 {i + 1}
               </span>
             )}
@@ -174,7 +174,7 @@ function ContentLines({ lines, kind, search, lineToMatchIdx, matchIndex, showLin
           </div>
         )
       })}
-      {lines.length === 0 && <div style={{ color: '#3a6a8a' }}>{emptyLabel || 'No content.'}</div>}
+      {lines.length === 0 && <div style={{ color: '#6298ba' }}>{emptyLabel || 'No content.'}</div>}
     </div>
   )
 }
@@ -182,7 +182,7 @@ function ContentLines({ lines, kind, search, lineToMatchIdx, matchIndex, showLin
 function ControlSelect({ value, onChange, options, label }) {
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <span style={{ fontSize: 9, color: '#3a6a8a', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontSize: 9, color: '#6298ba', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
       <select value={value} onChange={e => onChange(e.target.value)} style={{
         background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.18)',
         color: '#7ab8d8', fontSize: 10, padding: '1px 4px', borderRadius: 3,
@@ -200,9 +200,9 @@ function VimHint({ k, label }) {
       <span style={{
         display: 'inline-block', padding: '0 4px', borderRadius: 2, fontSize: 9,
         background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-        color: '#5a8aaa', fontFamily: 'inherit',
+        color: '#84b0ce', fontFamily: 'inherit',
       }}>{k}</span>
-      <span style={{ fontSize: 9, color: '#2a4a6a' }}>{label}</span>
+      <span style={{ fontSize: 9, color: '#52789a' }}>{label}</span>
     </span>
   )
 }
@@ -248,8 +248,10 @@ export function ActionModal() {
   // Helm history
   const [helmHistory,        setHelmHistory]        = useState([])
   const [helmRollbackStatus, setHelmRollbackStatus] = useState({}) // rev → 'rolling' | 'ok' | 'err'
+  const [historyIdx,         setHistoryIdx]         = useState(0)    // j/k-highlighted history row (#56)
   const [historyValues,      setHistoryValues]      = useState(null) // { revision, content } | null (peek a revision's values)
   const [historyValuesBusy,  setHistoryValuesBusy]  = useState(false)
+  const [historyValuesAll,   setHistoryValuesAll]   = useState(false) // peek: USER vs ALL (computed) values (#56)
 
   // Copy feedback
   const [copyFlash, setCopyFlash] = useState(false)
@@ -272,6 +274,7 @@ export function ActionModal() {
   const editViewRef = useRef()   // CodeMirror EditorView (edit mode)
   const lastGRef    = useRef(0)
   const matchRefs   = useRef({})
+  const historyRowRef = useRef()  // highlighted helm-history row (scrollIntoView)
   const fetchedRef  = useRef({})  // `${itemId}|${format}` → true, avoids refetching a loaded view
 
   const isMulti  = modal && MULTI_LOG_RESOURCES.has(modal.resource)
@@ -407,12 +410,12 @@ export function ActionModal() {
     finally      { setLoading(false) }
   }, [modal, helmAllValues])
 
-  const fetchRevisionValues = useCallback(async (revision) => {
+  const fetchRevisionValues = useCallback(async (revision, all = false) => {
     if (!modal) return
     const { namespace, name } = modal.item
-    setHistoryValues({ revision, content: '' }); setHistoryValuesBusy(true)
+    setHistoryValues({ revision, content: '' }); setHistoryValuesBusy(true); setHistoryValuesAll(all)
     try {
-      const res  = await fetch(`/api/helm/values/${namespace}/${name}?revision=${revision}`)
+      const res  = await fetch(`/api/helm/values/${namespace}/${name}?revision=${revision}${all ? '&all=true' : ''}`)
       const data = await res.json()
       setHistoryValues({ revision, content: data.output || '' })
     } catch (err) { setHistoryValues({ revision, content: `Error: ${err.message}` }) }
@@ -444,7 +447,7 @@ export function ActionModal() {
     setSearch(''); setSearchActive(false); setMatchIndex(0)
     setEditResult(null); setVimMode('normal'); setVimHelp(false)
     setSecretDecoded(!!modal.decoded); setHelmHistory([]); setHelmRollbackStatus({})
-    setHistoryValues(null)
+    setHistoryValues(null); setHistoryIdx(0); setHistoryValuesAll(false)
     setHelmAllValues(false); prevAllValues.current = null
     fetchedRef.current = {}
     const t = modal.type
@@ -527,6 +530,12 @@ export function ActionModal() {
     if (searchActive) setTimeout(() => searchRef.current?.focus(), 30)
   }, [searchActive])
 
+  // Keep the j/k-highlighted helm-history row in view (#56)
+  useEffect(() => {
+    if (modal?.type === 'helm-history' && !historyValues)
+      historyRowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [historyIdx, modal?.type, historyValues])
+
   // ── Copy ─────────────────────────────────────────────────────────────────
 
   const doCopy = useCallback(() => {
@@ -557,16 +566,18 @@ export function ActionModal() {
       // '/' search, '?' help). Yield entirely so nothing here intercepts first.
       if (editMode) return
 
-      // Esc: step back through read-view / logs states, then close.
+      // Focused inputs (header search, log grep, control selects) own their own keys —
+      // including Esc (they clear+blur themselves). Don't intercept here.
+      if (inInput) return
+
+      // Esc (read-view, nothing focused): step back through search/filter, then close.
       if (e.key === 'Escape') {
         e.preventDefault(); e.stopPropagation()
-        if (searchActive || search) { setSearchActive(false); setSearch(''); setMatchIndex(0); return }
+        if (search) { setSearch(''); setMatchIndex(0); return }
         if (logFilter) { setLogFilter(''); setMatchIndex(0); return }
         closeModal()
         return
       }
-
-      if (inInput) return
 
       // Tab: in the Helm values modal, toggle USER / ALL (computed) values
       if (modal.type === 'helm-values' && e.key === 'Tab') {
@@ -603,6 +614,19 @@ export function ActionModal() {
         e.preventDefault(); e.stopPropagation()
         if (viewFormat === 'describe') { setViewFormat('yaml'); setSecretDecoded(true) }
         else setSecretDecoded(v => !v)
+        return
+      }
+
+      // Helm history table: j/k highlight a revision row, v peeks that revision's values.
+      if (modal.type === 'helm-history' && !historyValues && helmHistory.length > 0) {
+        if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setHistoryIdx(i => Math.min(i + 1, helmHistory.length - 1)); return }
+        if (e.key === 'k' || e.key === 'ArrowUp')   { e.preventDefault(); e.stopPropagation(); setHistoryIdx(i => Math.max(i - 1, 0)); return }
+        if (e.key === 'v') { e.preventDefault(); e.stopPropagation(); const row = helmHistory[historyIdx]; if (row) fetchRevisionValues(row.revision, false); return }
+      }
+      // Helm revision-values peek: Tab toggles USER / ALL (computed) values.
+      if (modal.type === 'helm-history' && historyValues && e.key === 'Tab') {
+        e.preventDefault(); e.stopPropagation()
+        fetchRevisionValues(historyValues.revision, !historyValuesAll)
         return
       }
 
@@ -672,7 +696,7 @@ export function ActionModal() {
 
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [modal, closeModal, searchActive, search, logFilter, logMatchCount, nonLogMatchCount, doCopy, editMode, viewFormat, matchIndex])
+  }, [modal, closeModal, searchActive, search, logFilter, logMatchCount, nonLogMatchCount, doCopy, editMode, viewFormat, matchIndex, helmHistory, historyIdx, historyValues, historyValuesAll, fetchRevisionValues])
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
@@ -737,6 +761,8 @@ export function ActionModal() {
   const totalMatches  = type === 'logs' ? logMatchCount : nonLogMatchCount
   const isSecret      = resource === 'secrets'
 
+  const helmHistoryTable = type === 'helm-history' && !historyValues
+  const helmHistoryPeek  = type === 'helm-history' && !!historyValues
   const editNormal = editMode && editVimMode && vimMode === 'normal'
   const editInsert = editMode && editVimMode && vimMode === 'insert'
   const editVisual = editMode && editVimMode && vimMode === 'visual'
@@ -759,7 +785,7 @@ export function ActionModal() {
           borderRadius: 8, overflow: 'hidden',
           width: (isYamlOrEdit || type === 'helm-history') ? 'min(920px, 94vw)' : 'min(860px, 92vw)',
           height: 'min(640px, 86vh)',
-          background: 'rgba(2,10,22,0.98)',
+          background: 'rgba(12,22,38,0.98)',
           border: `1px solid ${lineColor}28`,
           boxShadow: `0 0 50px ${lineColor}12`,
         }}
@@ -775,15 +801,10 @@ export function ActionModal() {
             <span style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: '0.12em', color: lineColor }}>
               {typeLabel}
             </span>
-            <span style={{ fontSize: 11, color: '#3a6a8a' }}>
+            <span style={{ fontSize: 11, color: '#6298ba' }}>
               {displayName.slice(0, -1)} / {item.name}
-              {item.namespace && <span style={{ color: '#2a5070' }}> · {item.namespace}</span>}
+              {item.namespace && <span style={{ color: '#527aa0' }}> · {item.namespace}</span>}
             </span>
-            {activeSearch && totalMatches > 0 && (
-              <span style={{ fontSize: 10, color: '#ffcc44', letterSpacing: '0.06em' }}>
-                {matchIndex + 1}/{totalMatches} matches
-              </span>
-            )}
             {isSecret && isInspect && (viewFormat === 'yaml' || viewFormat === 'json' || editMode) && (
               <button
                 onClick={() => {
@@ -797,7 +818,7 @@ export function ActionModal() {
                 title={secretDecoded ? 'Re-encode secret values' : 'Decode base64 secret values'}
                 style={{
                   fontSize: 10, padding: '2px 8px', borderRadius: 3, cursor: 'pointer',
-                  color: secretDecoded ? '#ff8844' : '#5a8aaa',
+                  color: secretDecoded ? '#ff8844' : '#84b0ce',
                   background: secretDecoded ? 'rgba(255,136,68,0.12)' : 'rgba(0,212,255,0.06)',
                   border: `1px solid ${secretDecoded ? 'rgba(255,136,68,0.4)' : 'rgba(0,212,255,0.18)'}`,
                   fontFamily: 'inherit', transition: 'all 0.15s',
@@ -806,11 +827,44 @@ export function ActionModal() {
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 10, color: '#1e3a52' }}>ESC · close</span>
+            {/* Search box — top-right, `/` focuses (#68). Read views only: logs has its own
+                grep control, edit-mode search is owned by CodeMirror, history is a table. */}
+            {type !== 'logs' && !editMode && type !== 'helm-history' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 4,
+                background: search ? 'rgba(255,204,68,0.1)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${search ? 'rgba(255,204,68,0.3)' : 'rgba(255,255,255,0.1)'}`,
+              }}>
+                <span style={{ fontSize: 11, color: search ? '#ffcc44' : '#72a4c6', flexShrink: 0 }}>/</span>
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  onFocus={() => setSearchActive(true)}
+                  onBlur={() => setSearchActive(false)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); searchRef.current?.blur() }
+                    if (e.key === 'Escape') { e.preventDefault(); setSearch(''); setMatchIndex(0); searchRef.current?.blur() }
+                  }}
+                  placeholder="search…"
+                  style={{
+                    width: 130, background: 'transparent', border: 'none', outline: 'none',
+                    color: '#ffee88', fontSize: 11, fontFamily: 'inherit',
+                  }}
+                />
+                {search && totalMatches > 0 && (
+                  <span style={{ fontSize: 10, color: '#ffcc44', flexShrink: 0 }}>{matchIndex + 1}/{totalMatches}</span>
+                )}
+                {search && totalMatches === 0 && (
+                  <span style={{ fontSize: 10, color: '#ff6677', flexShrink: 0 }}>0</span>
+                )}
+              </div>
+            )}
+            <span style={{ fontSize: 10, color: '#4a6e8e' }}>ESC · close</span>
             <button onClick={closeModal}
-              style={{ fontSize: 18, lineHeight: 1, color: '#3a5a7a', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+              style={{ fontSize: 18, lineHeight: 1, color: '#5e88aa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
               onMouseEnter={e => e.target.style.color = '#c0d8f0'}
-              onMouseLeave={e => e.target.style.color = '#3a5a7a'}
+              onMouseLeave={e => e.target.style.color = '#5e88aa'}
             >×</button>
           </div>
         </div>
@@ -832,7 +886,7 @@ export function ActionModal() {
               <ControlSelect label="Pod" value={logPodFilter} onChange={setLogPodFilter} options={podOptions} />
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 140 }}>
-              <span style={{ fontSize: 9, color: '#3a6a8a', letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>/</span>
+              <span style={{ fontSize: 9, color: '#6298ba', letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>/</span>
               <input
                 ref={filterRef}
                 value={logFilter}
@@ -862,7 +916,7 @@ export function ActionModal() {
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
               <input type="checkbox" checked={logAutoScroll} onChange={e => setLogAutoScroll(e.target.checked)}
                 style={{ accentColor: lineColor }} />
-              <span style={{ fontSize: 9, color: '#3a6a8a', textTransform: 'uppercase', letterSpacing: '0.06em' }}>scroll</span>
+              <span style={{ fontSize: 9, color: '#6298ba', textTransform: 'uppercase', letterSpacing: '0.06em' }}>scroll</span>
             </label>
           </div>
         )}
@@ -906,7 +960,7 @@ export function ActionModal() {
                       )
                     })}
                     {lines.length === 0 && (
-                      <div style={{ color: '#3a6a8a', fontStyle: 'italic' }}>No log output.</div>
+                      <div style={{ color: '#6298ba', fontStyle: 'italic' }}>No log output.</div>
                     )}
                   </div>
                 )
@@ -982,8 +1036,19 @@ export function ActionModal() {
                       fontFamily: 'inherit',
                     }}>← History</button>
                     <span style={{ fontSize: 11, color: '#ff8844', letterSpacing: '0.06em' }}>
-                      Revision {historyValues.revision} · user values
+                      Revision {historyValues.revision} · {historyValuesAll ? 'all values' : 'user values'}
                     </span>
+                    <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(0,212,255,0.18)' }}>
+                      {[{ k: false, l: 'USER' }, { k: true, l: 'ALL' }].map(({ k, l }) => (
+                        <button key={l} onClick={() => fetchRevisionValues(historyValues.revision, k)} style={{
+                          fontSize: 9, padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em',
+                          color: historyValuesAll === k ? '#00d4ff' : '#5e88aa',
+                          background: historyValuesAll === k ? 'rgba(0,212,255,0.15)' : 'transparent',
+                          border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
+                        }}>{l}</button>
+                      ))}
+                    </div>
+                    <span style={{ fontSize: 9, color: '#5e88aa' }}>⇥ user/all</span>
                   </div>
                   {historyValuesBusy
                     ? <div style={{ fontSize: 11, color: '#ff8844', opacity: 0.7 }}>Loading values…</div>
@@ -999,31 +1064,35 @@ export function ActionModal() {
               {type === 'helm-history' && !historyValues && (
                 <div>
                   {helmHistory.length === 0 && !loading && (
-                    <div style={{ color: '#3a6a8a', fontStyle: 'italic', fontSize: 11 }}>No history available.</div>
+                    <div style={{ color: '#6298ba', fontStyle: 'italic', fontSize: 11 }}>No history available.</div>
                   )}
                   {helmHistory.length > 0 && (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid rgba(0,212,255,0.15)' }}>
                           {['REV', 'UPDATED', 'STATUS', 'CHART', 'DESCRIPTION', ''].map(h => (
-                            <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontSize: 10, color: '#4a7a9a', letterSpacing: '0.08em', fontWeight: 'normal' }}>{h}</th>
+                            <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontSize: 10, color: '#72a4c6', letterSpacing: '0.08em', fontWeight: 'normal' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {helmHistory.map(row => {
+                        {helmHistory.map((row, ri) => {
                           const isDeployed = row.status === 'deployed'
+                          const isCursor   = ri === historyIdx
                           const rbStatus = helmRollbackStatus[row.revision]
                           return (
-                            <tr key={row.revision} style={{
-                              borderBottom: '1px solid rgba(0,212,255,0.06)',
-                              background: isDeployed ? 'rgba(0,255,170,0.04)' : 'transparent',
-                            }}>
+                            <tr key={row.revision}
+                              ref={isCursor ? historyRowRef : undefined}
+                              style={{
+                                borderBottom: '1px solid rgba(0,212,255,0.06)',
+                                background: isCursor ? 'rgba(255,204,68,0.12)' : isDeployed ? 'rgba(0,255,170,0.04)' : 'transparent',
+                                boxShadow: isCursor ? 'inset 2px 0 0 #ffcc44' : 'none',
+                              }}>
                               <td style={{ padding: '6px 8px', color: '#00d4ff', fontFamily: 'monospace' }}>{row.revision}</td>
-                              <td style={{ padding: '6px 8px', color: '#3a6a8a', fontFamily: 'monospace', fontSize: 10 }}>{row.updated}</td>
-                              <td style={{ padding: '6px 8px', color: isDeployed ? '#00ffaa' : '#667788' }}>{row.status}</td>
+                              <td style={{ padding: '6px 8px', color: '#6298ba', fontFamily: 'monospace', fontSize: 10 }}>{row.updated}</td>
+                              <td style={{ padding: '6px 8px', color: isDeployed ? '#00ffaa' : '#8a9cae' }}>{row.status}</td>
                               <td style={{ padding: '6px 8px', color: '#aa55ff' }}>{row.chart}</td>
-                              <td style={{ padding: '6px 8px', color: '#5a8aaa', fontSize: 10 }}>{row.description}</td>
+                              <td style={{ padding: '6px 8px', color: '#84b0ce', fontSize: 10 }}>{row.description}</td>
                               <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                 <button
                                   onClick={() => fetchRevisionValues(row.revision)}
@@ -1064,34 +1133,36 @@ export function ActionModal() {
           )}
         </div>
 
-        {/* ── Inline search bar (describe/yaml/edit-vim) ────────────── */}
-        {searchActive && type !== 'logs' && !editMode && (
+        {/* ── Edit error banner (#65) ───────────────────────────────── */}
+        {/* kubectl/apply errors are often long & multi-line; surface them in a readable,
+            scrollable, dismissible panel instead of cramming into the footer. */}
+        {editMode && editResult && !editResult.ok && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px', flexShrink: 0,
-            borderTop: `1px solid rgba(255,204,68,0.2)`, background: 'rgba(255,204,68,0.04)',
+            flexShrink: 0, maxHeight: 170, overflowY: 'auto', padding: '8px 16px 10px',
+            borderTop: '1px solid rgba(255,68,85,0.4)', background: 'rgba(255,68,85,0.08)',
           }}>
-            <span style={{ fontSize: 11, color: '#ffcc44' }}>/</span>
-            <input
-              ref={searchRef}
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') { e.preventDefault(); searchRef.current?.blur() }
-                if (e.key === 'Escape') { e.preventDefault(); setSearchActive(false); setSearch(''); setMatchIndex(0) }
-              }}
-              placeholder="search…"
-              style={{
-                flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                color: '#ffee88', fontSize: 11, fontFamily: 'inherit',
-              }}
-            />
-            {search && nonLogMatchCount > 0 && (
-              <span style={{ fontSize: 10, color: '#ffcc44' }}>{matchIndex + 1}/{nonLogMatchCount}</span>
-            )}
-            {search && nonLogMatchCount === 0 && (
-              <span style={{ fontSize: 10, color: '#ff6677' }}>no matches</span>
-            )}
-            <span style={{ fontSize: 9, color: '#4a6a6a' }}>n/N · navigate · Esc · close</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 10, fontWeight: 'bold', letterSpacing: '0.1em', color: '#ff6677' }}>
+                ✗ APPLY FAILED
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => { navigator.clipboard?.writeText(editResult.error || ''); setCopyFlash(true); setTimeout(() => setCopyFlash(false), 1200) }}
+                  style={{
+                    fontSize: 10, padding: '1px 8px', borderRadius: 3, cursor: 'pointer',
+                    color: copyFlash ? '#00ffaa' : '#ff9aa6', background: 'rgba(255,68,85,0.1)',
+                    border: '1px solid rgba(255,68,85,0.3)', fontFamily: 'inherit',
+                  }}
+                >{copyFlash ? '✓ Copied' : 'Copy'}</button>
+                <button onClick={() => setEditResult(null)} title="Dismiss"
+                  style={{ fontSize: 14, lineHeight: 1, color: '#ff6677', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+                >×</button>
+              </div>
+            </div>
+            <pre style={{
+              margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              fontFamily: "'Courier New', monospace", fontSize: 11, lineHeight: 1.5, color: '#ffb6bf',
+            }}>{editResult.error}</pre>
           </div>
         )}
 
@@ -1105,10 +1176,10 @@ export function ActionModal() {
           {/* Left: stats + vim hints */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {type === 'logs' && !loading && (
-              <span style={{ fontSize: 10, color: '#2a5070' }}>
+              <span style={{ fontSize: 10, color: '#527aa0' }}>
                 {logFilter ? `${filteredLogLines.length} matching` : `${logLines.length}`} lines
                 {isMulti && logPodFilter === 'all' && logPods.length > 0 && (
-                  <span style={{ color: '#1e3a52' }}> · {logPods.length} pods</span>
+                  <span style={{ color: '#4a6e8e' }}> · {logPods.length} pods</span>
                 )}
               </span>
             )}
@@ -1117,7 +1188,7 @@ export function ActionModal() {
               <button onClick={() => setShowLineNumbers(v => !v)} title="Toggle line numbers"
                 style={{
                   fontSize: 10, padding: '1px 7px', borderRadius: 3, cursor: 'pointer',
-                  color: showLineNumbers ? '#00d4ff' : '#3a5a7a',
+                  color: showLineNumbers ? '#00d4ff' : '#5e88aa',
                   background: showLineNumbers ? 'rgba(0,212,255,0.1)' : 'rgba(255,255,255,0.04)',
                   border: `1px solid ${showLineNumbers ? 'rgba(0,212,255,0.35)' : 'rgba(255,255,255,0.1)'}`,
                   fontFamily: 'inherit', transition: 'all 0.15s',
@@ -1133,21 +1204,26 @@ export function ActionModal() {
                 fontFamily: 'inherit', transition: 'all 0.2s',
               }}>{copyFlash ? '✓ Copied' : 'Copy'} <span style={{ opacity: 0.5, fontSize: 9 }}>c</span></button>
             )}
-            {/* Edit apply result */}
-            {editMode && editResult && (
-              <span style={{ fontSize: 10, color: editResult.ok ? '#00ffaa' : '#ff6677' }}>
-                {editResult.ok ? `✓ ${editResult.output || 'Applied'}` : `✗ ${editResult.error}`}
+            {/* Edit apply result — success is terse here; errors render in the banner above. */}
+            {editMode && editResult?.ok && (
+              <span style={{ fontSize: 10, color: '#00ffaa' }}>
+                ✓ {editResult.output || 'Applied'}
               </span>
+            )}
+            {editMode && editResult && !editResult.ok && (
+              <span style={{ fontSize: 10, color: '#ff6677' }}>✗ apply failed — see details ↑</span>
             )}
             {/* Key hints — edit-mode vim keys live in the ? overlay (CodeMirror owns them) */}
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
-              {!editMode && <VimHint k="j/k" label="scroll" />}
-              {!editMode && <VimHint k="gg/G" label="top/bottom" />}
+              {helmHistoryTable && <VimHint k="j/k" label="select" />}
+              {helmHistoryTable && <VimHint k="v" label="values" />}
+              {!editMode && !helmHistoryTable && <VimHint k="j/k" label="scroll" />}
+              {!editMode && !helmHistoryTable && <VimHint k="gg/G" label="top/bottom" />}
               {isInspect && !editMode && <VimHint k="Tab" label="describe/yaml/json" />}
-              {type === 'helm-values' && <VimHint k="Tab" label="user/all" />}
+              {(type === 'helm-values' || helmHistoryPeek) && <VimHint k="Tab" label="user/all" />}
               {isInspect && !editMode && <VimHint k="e" label="edit" />}
-              {!editMode && <VimHint k="/" label="search" />}
-              {!editMode && <VimHint k="n/N" label="next/prev" />}
+              {!editMode && !helmHistoryTable && <VimHint k="/" label="search" />}
+              {!editMode && !helmHistoryTable && <VimHint k="n/N" label="next/prev" />}
               {isSecret && isInspect && !editMode && <VimHint k="x" label="decode" />}
               {editMode && editVimMode && <VimHint k="?" label="vim keys" />}
             </span>
@@ -1161,7 +1237,7 @@ export function ActionModal() {
                 {[{ k: false, l: 'USER' }, { k: true, l: 'ALL' }].map(({ k, l }) => (
                   <button key={l} onClick={() => setHelmAllValues(k)} style={{
                     fontSize: 9, padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em',
-                    color: helmAllValues === k ? '#00d4ff' : '#3a5a7a',
+                    color: helmAllValues === k ? '#00d4ff' : '#5e88aa',
                     background: helmAllValues === k ? 'rgba(0,212,255,0.15)' : 'transparent',
                     border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
                   }}>{l}</button>
@@ -1174,7 +1250,7 @@ export function ActionModal() {
                 {['describe', 'yaml', 'json'].map(fmt => (
                   <button key={fmt} onClick={() => setViewFormat(fmt)} style={{
                     fontSize: 9, padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em',
-                    color: viewFormat === fmt ? (fmt === 'describe' ? '#aa55ff' : '#00d4ff') : '#3a5a7a',
+                    color: viewFormat === fmt ? (fmt === 'describe' ? '#aa55ff' : '#00d4ff') : '#5e88aa',
                     background: viewFormat === fmt ? (fmt === 'describe' ? 'rgba(170,85,255,0.15)' : 'rgba(0,212,255,0.15)') : 'transparent',
                     border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
                   }}>{fmt.toUpperCase()}</button>
@@ -1191,7 +1267,7 @@ export function ActionModal() {
                   onClick={() => { setEditVimMode(v => !v); setVimMode('normal') }}
                   style={{
                     fontSize: 10, padding: '2px 8px', borderRadius: 3, cursor: 'pointer',
-                    color: editVimMode ? '#ffcc00' : '#3a5a7a',
+                    color: editVimMode ? '#ffcc00' : '#5e88aa',
                     background: editVimMode ? 'rgba(255,204,0,0.1)' : 'rgba(255,255,255,0.04)',
                     border: `1px solid ${editVimMode ? 'rgba(255,204,0,0.35)' : 'rgba(255,255,255,0.1)'}`,
                     fontFamily: 'inherit', letterSpacing: '0.08em', transition: 'all 0.15s',

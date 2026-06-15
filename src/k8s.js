@@ -4,6 +4,29 @@ let cachedKc = null
 let k8s = null
 let lastError = null
 
+// Demo/mock mode is a dev tool, OFF by default. Set MEZZ_DEMO=1 to serve the mock
+// cluster when no real cluster is reachable (e.g. UI demos without a kubeconfig).
+const DEMO = !!process.env.MEZZ_DEMO &&
+  process.env.MEZZ_DEMO !== '0' && process.env.MEZZ_DEMO !== 'false'
+
+const RESOURCE_KEYS = [
+  'pods', 'deployments', 'replicasets', 'services',
+  'statefulsets', 'daemonsets', 'jobs', 'cronjobs', 'hpa', 'pdb',
+  'ingresses', 'networkpolicies',
+  'configmaps', 'secrets', 'serviceaccounts', 'resourcequotas',
+  'pvcs', 'pvs', 'storageclasses',
+  'roles', 'clusterroles', 'rolebindings', 'clusterrolebindings',
+  'nodes', 'namespaces', 'events', 'crds', 'helmreleases',
+]
+
+// Empty payload shown when no cluster is reachable and demo mode is off.
+// clusterConnected drives the frontend "not connected" empty state.
+function emptyResources(clusterError) {
+  const out = { demoMode: false, clusterConnected: false, clusterError }
+  for (const k of RESOURCE_KEYS) out[k] = []
+  return out
+}
+
 async function loadK8s() {
   if (k8s) return k8s
   k8s = await import('@kubernetes/client-node')
@@ -125,7 +148,8 @@ function normalizeHelmStatus(s) {
 export async function fetchResources() {
   const kc = await getClient()
   if (!kc) {
-    return applyWorkloadHealth({ ...getMockResources(), demoMode: true, clusterError: lastError })
+    if (DEMO) return applyWorkloadHealth({ ...getMockResources(), demoMode: true, clusterError: lastError })
+    return emptyResources(lastError)
   }
 
   try {
@@ -543,13 +567,17 @@ export async function fetchResources() {
       pvcs, pvs, storageclasses,
       roles, clusterroles, rolebindings, clusterrolebindings,
       nodes, namespaces, events, crds, helmreleases,
-      demoMode: false, clusterError: null,
+      demoMode: false, clusterConnected: true, clusterError: null,
     })
   } catch (err) {
-    console.warn('k8s fetch failed, falling back to demo mode:', err.message)
     cachedKc = null
     lastError = err.message
-    return applyWorkloadHealth({ ...getMockResources(), demoMode: true, clusterError: err.message })
+    if (DEMO) {
+      console.warn('k8s fetch failed, falling back to demo mode:', err.message)
+      return applyWorkloadHealth({ ...getMockResources(), demoMode: true, clusterError: err.message })
+    }
+    console.warn('k8s fetch failed:', err.message)
+    return emptyResources(err.message)
   }
 }
 

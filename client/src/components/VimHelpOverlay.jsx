@@ -99,19 +99,19 @@ export function VimHelpOverlay({ onClose }) {
         onClick={e => e.stopPropagation()}
         style={{
           width: 'min(900px, 94vw)', maxHeight: '86vh', overflowY: 'auto',
-          borderRadius: 8, background: 'rgba(2,10,22,0.98)',
+          borderRadius: 8, background: 'rgba(12,22,38,0.98)',
           border: '1px solid rgba(255,204,0,0.3)', boxShadow: '0 0 50px rgba(255,204,0,0.12)',
         }}
       >
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '12px 18px', borderBottom: '1px solid rgba(255,204,0,0.18)',
-          position: 'sticky', top: 0, background: 'rgba(2,10,22,0.98)',
+          position: 'sticky', top: 0, background: 'rgba(12,22,38,0.98)',
         }}>
           <span style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: '0.16em', color: '#ffcc00' }}>
             VIM KEYS — EDIT MODE
           </span>
-          <span style={{ fontSize: 10, color: '#1e3a52' }}>? · ESC · close</span>
+          <span style={{ fontSize: 10, color: '#4a6e8e' }}>? · ESC · close</span>
         </div>
 
         <div style={{
@@ -140,7 +140,7 @@ export function VimHelpOverlay({ onClose }) {
             </div>
           ))}
         </div>
-        <div style={{ padding: '0 22px 16px', fontSize: 10, color: '#3a5a7a' }}>
+        <div style={{ padding: '0 22px 16px', fontSize: 10, color: '#5e88aa' }}>
           Powered by CodeMirror vim — most standard vim commands work, including counts (e.g. 3dd, 5j).
         </div>
       </div>

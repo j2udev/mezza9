@@ -87,7 +87,7 @@ export function ActionMenu() {
         <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,212,255,0.14)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: '0.14em', color: '#00d4ff' }}>ACTIONS</span>
-            <span style={{ fontSize: 10, color: '#3a6a8a' }}>
+            <span style={{ fontSize: 10, color: '#6298ba' }}>
               {label.slice(0, -1)} / {item.name}
               {markedCount > 0 && <span style={{ color: '#ffcc44', marginLeft: 6 }}>· {markedCount} marked</span>}
             </span>
@@ -112,7 +112,7 @@ export function ActionMenu() {
         {/* Action list */}
         <div style={{ overflowY: 'auto', padding: '6px 0' }}>
           {actions.length === 0 && (
-            <div style={{ padding: '10px 16px', fontSize: 11, color: '#3a5a7a', fontStyle: 'italic' }}>No matching actions.</div>
+            <div style={{ padding: '10px 16px', fontSize: 11, color: '#5e88aa', fontStyle: 'italic' }}>No matching actions.</div>
           )}
           {actions.map((a, i) => {
             const showGroup = i === 0 || actions[i - 1].group !== a.group
@@ -120,7 +120,7 @@ export function ActionMenu() {
             return (
               <Fragment key={a.id}>
                 {showGroup && (
-                  <div style={{ padding: '6px 16px 2px', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#3a6a8a' }}>
+                  <div style={{ padding: '6px 16px 2px', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6298ba' }}>
                     {a.group}
                   </div>
                 )}
@@ -137,7 +137,7 @@ export function ActionMenu() {
                 >
                   <span style={{ fontSize: 12, color: a.danger ? a.color : (selected ? a.color : '#c0d8f0') }}>{a.label}</span>
                   <span style={{
-                    fontSize: 10, color: '#5a7a98', fontFamily: 'inherit',
+                    fontSize: 10, color: '#86a8c6', fontFamily: 'inherit',
                     background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: 3, padding: '0 5px',
                   }}>{a.hint}</span>
@@ -149,7 +149,7 @@ export function ActionMenu() {
 
         {/* Footer */}
         <div style={{ padding: '6px 14px', borderTop: '1px solid rgba(0,212,255,0.12)', flexShrink: 0,
-          display: 'flex', gap: 12, fontSize: 10, color: '#3a5a7a', background: 'rgba(0,0,0,0.25)' }}>
+          display: 'flex', gap: 12, fontSize: 10, color: '#5e88aa', background: 'rgba(0,0,0,0.25)' }}>
           <span>j/k move</span><span>↵ run</span><span>shortcut runs</span><span>/ filter</span><span>esc close</span>
         </div>
       </div>

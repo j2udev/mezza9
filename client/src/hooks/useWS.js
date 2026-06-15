@@ -14,22 +14,36 @@ export function useWS() {
   const setConnected = useStore(s => s.setConnected)
 
   useEffect(() => {
-    // HTTP fetch: load current data immediately on mount
-    fetch('/api/data')
-      .then(r => r.json())
-      .then(data => setData(data))
-      .catch(err => console.error('[useWS] fetch /api/data failed:', err))
-
     let ws
     let retryTimer
+    let pollTimer
     let dead = false
+
+    const loadData = () =>
+      fetch('/api/data').then(r => r.json()).then(setData).catch(() => {})
+
+    // HTTP polling fallback. The WebSocket upgrade doesn't survive every proxy/tunnel
+    // (VS Code port-forward, ingress, etc. may strip the Upgrade header), which would
+    // otherwise leave the UI frozen on the initial snapshot. The server refreshes
+    // `latest` every 5s, so polling /api/data keeps data fresh whenever the WS isn't
+    // carrying updates. The WS, when it connects, is preferred (lower latency) and
+    // stops the poll.
+    function startPolling() {
+      if (pollTimer || dead) return
+      pollTimer = setInterval(loadData, 5000)
+    }
+    function stopPolling() {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
 
     function connect() {
       if (dead) return
       ws = new WebSocket(getWsUrl())
-      ws.onopen = () => setConnected(true)
+      ws.onopen = () => { setConnected(true); stopPolling() }
       ws.onclose = () => {
         setConnected(false)
+        startPolling()                       // WS down → keep data fresh via polling
         retryTimer = setTimeout(connect, 3000)
       }
       ws.onerror = () => ws.close()
@@ -41,10 +55,14 @@ export function useWS() {
       }
     }
 
+    loadData()      // immediate snapshot on mount
+    startPolling()  // poll until the WS opens (cleared in onopen); covers WS-never-connects
     connect()
+
     return () => {
       dead = true
       clearTimeout(retryTimer)
+      stopPolling()
       ws?.close()
     }
   }, [])

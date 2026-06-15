@@ -141,7 +141,9 @@ export const useStore = create((set, get) => ({
   helmreleases: [],
   selectedIds: new Set(), // multi-select
   demoMode: false,
-  connected: false,
+  connected: false,          // WebSocket transport connection
+  clusterConnected: false,   // backend reached a live k8s cluster
+  clusterError: null,        // reason the cluster is unreachable (shown by NotConnected)
 
   // Current view
   activeResource: 'pods',
@@ -150,6 +152,10 @@ export const useStore = create((set, get) => ({
   filter: '',
   filterActive: false,
   filterPinned: false,
+  // Top-right search box mode (#70): 'str' = filter the current list by name/namespace,
+  // 'res' = pick/switch the active resource (autocomplete + dropdown). `command` holds the
+  // resource-mode text (shared with submitCommand / the `:` flow).
+  filterMode: 'str',
 
   // Sorting & fault filter
   sortKey: null,      // 'name' | 'age' | 'status' | null (server order)
@@ -216,22 +222,24 @@ export const useStore = create((set, get) => ({
 
   setCommandActive: (v) => set({ commandActive: v, command: '' }),
   setCommand: (c) => set({ command: c }),
+  setFilterMode: (m) => set({ filterMode: m }),
 
-  submitCommand: () => {
-    const { command } = get()
-    const trimmed = command.trim().toLowerCase()
+  // Resource-mode submit (Enter / dropdown pick in the top-right box, or the legacy `:` flow).
+  // Returns true if it switched resource / entered ns picker, so the caller can blur the box.
+  submitCommand: (raw) => {
+    const trimmed = (raw ?? get().command).trim().toLowerCase()
 
-    // :ns or :namespace (no arg) → namespace picker
+    // ns / namespace (no arg) → namespace picker
     if (trimmed === 'ns' || trimmed === 'namespace') {
       get().enterNsPickerMode()
-      set({ commandActive: false, command: '' })
-      return
+      set({ commandActive: false, command: '', filterActive: false, filterMode: 'str' })
+      return true
     }
-    // :ns <name> → direct set
+    // ns <name> → direct set
     if (trimmed.startsWith('ns ') || trimmed.startsWith('namespace ')) {
       const ns = trimmed.split(/\s+/).slice(1).join(' ')
-      set({ activeNamespace: ns || 'all', commandActive: false, command: '' })
-      return
+      set({ activeNamespace: ns || 'all', commandActive: false, command: '', filterActive: false, filterMode: 'str' })
+      return true
     }
 
     const resolved = RESOURCE_ALIASES[trimmed]
@@ -241,9 +249,12 @@ export const useStore = create((set, get) => ({
         navStack: [], navFuture: [], drilldownItems: null, drilldownLabel: '',
         nsPickerMode: false, previousResource: null,
         sortKey: null, sortDir: 'asc',
+        command: '', commandActive: false, filterMode: 'str',
       })
+      return true
     }
     set({ commandActive: false, command: '' })
+    return false
   },
 
   // Namespace picker

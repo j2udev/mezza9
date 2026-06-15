@@ -62,7 +62,7 @@ export function DeleteModal() {
       <div
         style={{
           position: 'relative', padding: '28px 32px', borderRadius: 8,
-          background: 'rgba(2,10,22,0.98)',
+          background: 'rgba(12,22,38,0.98)',
           border: '1px solid rgba(255,68,88,0.35)',
           boxShadow: '0 0 40px rgba(255,68,88,0.12)',
           minWidth: 360, maxWidth: 520,
@@ -75,13 +75,13 @@ export function DeleteModal() {
             DELETE
           </span>
           {isMulti ? (
-            <span style={{ fontSize: 12, color: '#3a6a8a' }}>
+            <span style={{ fontSize: 12, color: '#6298ba' }}>
               {items.length} {displayResource}
             </span>
           ) : (
-            <span style={{ fontSize: 12, color: '#3a6a8a' }}>
+            <span style={{ fontSize: 12, color: '#6298ba' }}>
               {displayResource.slice(0, -1)} / {items[0].name}
-              {items[0].namespace && <span style={{ color: '#2a5070' }}> · {items[0].namespace}</span>}
+              {items[0].namespace && <span style={{ color: '#527aa0' }}> · {items[0].namespace}</span>}
             </span>
           )}
         </div>
@@ -102,7 +102,7 @@ export function DeleteModal() {
                     <div key={item.id} style={{ fontSize: 11, color: '#9ab8d0', lineHeight: 1.8, fontFamily: 'monospace' }}>
                       <span style={{ color: '#ff6677' }}>✗</span>{' '}
                       {item.name}
-                      {item.namespace && <span style={{ color: '#2a4a6a' }}> ({item.namespace})</span>}
+                      {item.namespace && <span style={{ color: '#52789a' }}> ({item.namespace})</span>}
                     </div>
                   ))}
                 </div>
@@ -122,7 +122,7 @@ export function DeleteModal() {
                 onClick={cancelDelete}
                 style={{
                   fontSize: 11, padding: '5px 16px', borderRadius: 4, cursor: 'pointer',
-                  color: '#5a8aaa', background: 'rgba(255,255,255,0.04)',
+                  color: '#84b0ce', background: 'rgba(255,255,255,0.04)',
                   border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'inherit',
                 }}
               >Cancel <span style={{ opacity: 0.5, fontSize: 9 }}>Esc</span></button>
@@ -151,7 +151,7 @@ export function DeleteModal() {
             {!status.ok && (
               <button onClick={cancelDelete} style={{
                 fontSize: 11, padding: '4px 14px', borderRadius: 4, cursor: 'pointer',
-                color: '#5a8aaa', background: 'rgba(255,255,255,0.04)',
+                color: '#84b0ce', background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'inherit',
               }}>Close</button>
             )}

@@ -82,20 +82,8 @@ export function useKeys() {
         return
       }
 
-      if (s.commandActive) {
-        if (e.key === 'Enter')  { e.preventDefault(); s.submitCommand() }
-        if (e.key === 'Escape') s.setCommandActive(false)
-        return
-      }
-
-      if (s.filterActive) {
-        if (e.key === 'Escape' || e.key === 'Enter') {
-          e.preventDefault()
-          s.setFilterActive(false)
-          if (s.filter) s.setFilterPinned(true)
-        }
-        return
-      }
+      // The top-right search box (string or resource mode) owns its own keys while focused.
+      if (s.filterActive) return
 
       // Object actions from the registry (logs/describe/yaml/edit/decode, helm v/m/n/h,
       // ⇧f port-forward, ⇧j owner). Single source of truth in actions.js — keyed,
@@ -111,12 +99,16 @@ export function useKeys() {
 
       switch (e.key) {
         case ':':
+          // Resource-filter mode in the top-right box (replaces the old bottom command bar).
           e.preventDefault()
-          s.setCommandActive(true)
+          s.setFilterMode('res')
+          s.setFilterActive(true)
           break
 
         case '/':
+          // String-filter mode in the top-right box.
           e.preventDefault()
+          s.setFilterMode('str')
           s.setFilterActive(true)
           break
 

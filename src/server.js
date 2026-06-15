@@ -14,17 +14,12 @@ import { getMockLogs, getMockDescribe, getMockYaml, getMockCrdResources, getMock
 
 const execAsync = promisify(exec)
 
-// Resolve kubectl at startup
-let KUBECTL = 'kubectl'
-try {
-  KUBECTL = execAsync('which kubectl 2>/dev/null || true', { timeout: 3000 })
-    .then(r => r.stdout.trim() || 'kubectl')
-    .catch(() => 'kubectl')
-  // sync fallback
-  KUBECTL = '/workspaces/k8s-dashboard/.devbox/nix/profile/default/bin/kubectl'
-} catch { /* use default */ }
-
-const HELM = '/workspaces/k8s-dashboard/.devbox/nix/profile/default/bin/helm'
+// kubectl/helm are invoked as subprocesses (describe/yaml/json/edit/delete/port-forward
+// and helm get/history/rollback). Resolve from env so the container can point at its
+// bundled binaries on PATH; falls back to a bare name (PATH lookup). In devbox dev,
+// start.sh exports MEZZ_KUBECTL/MEZZ_HELM to the nix profile paths.
+const KUBECTL = process.env.MEZZ_KUBECTL || 'kubectl'
+const HELM    = process.env.MEZZ_HELM    || 'helm'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '..', 'client', 'dist')
@@ -51,7 +46,7 @@ let latest = {
   pvcs: [], pvs: [], storageclasses: [],
   roles: [], clusterroles: [], rolebindings: [], clusterrolebindings: [],
   nodes: [], namespaces: [], events: [], crds: [], helmreleases: [],
-  demoMode: false,
+  demoMode: false, clusterConnected: false, clusterError: null,
 }
 
 let refreshing = false
@@ -443,9 +438,13 @@ app.get('/api/crd/:group/:version/:plural', async (req, res) => {
   res.json({ items })
 })
 
-// SPA fallback — serve index.html for any non-API route
+// SPA fallback — serve index.html for any non-API route.
+// /ws is the WebSocket endpoint: a real upgrade is handled before Express, but if a
+// proxy strips the Upgrade header the request lands here — return 426 instead of HTML
+// so it fails cleanly (the client then relies on its HTTP polling fallback).
 if (existsSync(distDir)) {
   app.get('*', (req, res) => {
+    if (req.path === '/ws') return res.status(426).send('Upgrade Required')
     if (!req.path.startsWith('/api')) {
       res.sendFile(join(distDir, 'index.html'))
     }
@@ -455,7 +454,7 @@ if (existsSync(distDir)) {
 const PORT = process.env.PORT || 3001
 server.listen(PORT, '0.0.0.0', () => {
   const mode = existsSync(distDir) ? 'serving built frontend' : 'API only (run npm run build in client/)'
-  console.log(`\n  Mezzanine → http://localhost:${PORT}  [${mode}]\n`)
+  console.log(`\n  mezza9 → http://localhost:${PORT}  [${mode}]\n`)
   refresh()
   setInterval(refresh, 5000)
 })

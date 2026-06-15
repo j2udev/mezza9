@@ -31,13 +31,13 @@ export function LoadingScreen() {
   return (
     <div
       className="absolute inset-0 z-50 flex flex-col items-center justify-center"
-      style={{ background: '#020818', pointerEvents: 'none' }}
+      style={{ background: '#0a1220', pointerEvents: 'none' }}
     >
       <div className="mb-8 text-center">
         <div className="mezz-wordmark mb-2" style={{ fontSize: 64, lineHeight: 1 }}>
-          Mezzanine
+          mezza9
         </div>
-        <div className="text-xs tracking-widest" style={{ color: '#2a6a8a' }}>
+        <div className="text-xs tracking-widest" style={{ color: '#5298ba' }}>
           THE BEST SEAT IN THE THEATER
         </div>
       </div>
@@ -50,7 +50,7 @@ export function LoadingScreen() {
           style={{ borderColor: 'transparent transparent #aa55ff transparent', animationDirection: 'reverse', animationDuration: '1.5s' }} />
       </div>
 
-      <div className="text-xs font-mono" style={{ color: '#2a6a8a', minWidth: 160, textAlign: 'center' }}>
+      <div className="text-xs font-mono" style={{ color: '#5298ba', minWidth: 160, textAlign: 'center' }}>
         {!hasData ? `Connecting to cluster${dots}` : `Loading${dots}`}
       </div>
     </div>

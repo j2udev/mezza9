@@ -11,7 +11,7 @@ function Field({ label, value }) {
       : String(value ?? '—')
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#3a5a7a' }}>{label}</div>
+      <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#5e88aa' }}>{label}</div>
       <div className="text-xs break-all" style={{ color: '#c0d8f0', fontFamily: 'inherit' }}>{display}</div>
     </div>
   )
@@ -48,16 +48,16 @@ export function DetailPanel({ width = 288 }) {
       <div className="px-4 py-3 flex items-start justify-between gap-2 flex-shrink-0"
         style={{ borderBottom: '1px solid rgba(0,212,255,0.12)' }}>
         <div className="min-w-0">
-          <div className="text-xs mb-0.5" style={{ color: '#3a6a8a' }}>{activeResource.slice(0, -1)}</div>
+          <div className="text-xs mb-0.5" style={{ color: '#6298ba' }}>{activeResource.slice(0, -1)}</div>
           <div className="text-sm font-bold truncate" style={{ color: '#00d4ff', fontFamily: 'inherit' }}>
             {item.name}
           </div>
         </div>
         <button onClick={() => setSelected(null)}
           className="text-lg leading-none flex-shrink-0 mt-0.5 transition-colors"
-          style={{ color: '#3a5a7a' }}
+          style={{ color: '#5e88aa' }}
           onMouseEnter={e => e.target.style.color = '#c0d8f0'}
-          onMouseLeave={e => e.target.style.color = '#3a5a7a'}>
+          onMouseLeave={e => e.target.style.color = '#5e88aa'}>
           ×
         </button>
       </div>
@@ -96,7 +96,7 @@ export function DetailPanel({ width = 288 }) {
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
             onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
           >
-            <span style={{ color: '#5a7a98', fontSize: 9 }}>a </span>⋯
+            <span style={{ color: '#86a8c6', fontSize: 9 }}>a </span>⋯
           </button>
         </div>
       )}
