@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { applyTheme, getStoredThemeId } from './theme'
 
 export const CLUSTER_SCOPED_RESOURCES = new Set([
   'nodes', 'pvs', 'namespaces', 'crds', 'clusterroles', 'clusterrolebindings', 'storageclasses',
@@ -169,6 +170,15 @@ export const useStore = create((set, get) => ({
   // Help overlay
   helpOpen: false,
 
+  // Theme (#14). themeId drives a re-render of JS-computed colors (statusColor/getNsColor)
+  // on switch; CSS-var-based colors repaint on their own via applyTheme().
+  themeId: getStoredThemeId(),
+  themePickerOpen: false,
+  setTheme: (id) => { applyTheme(id); set({ themeId: id }) },
+  openThemePicker: () => set({ themePickerOpen: true }),
+  closeThemePicker: () => set({ themePickerOpen: false }),
+  toggleThemePicker: () => set(s => ({ themePickerOpen: !s.themePickerOpen })),
+
   // Drill-down navigation
   navStack: [],          // frames for back navigation
   navFuture: [],         // frames for forward navigation
@@ -228,6 +238,12 @@ export const useStore = create((set, get) => ({
   // Returns true if it switched resource / entered ns picker, so the caller can blur the box.
   submitCommand: (raw) => {
     const trimmed = (raw ?? get().command).trim().toLowerCase()
+
+    // theme → open the theme picker
+    if (trimmed === 'theme' || trimmed === 'themes') {
+      set({ themePickerOpen: true, commandActive: false, command: '', filterActive: false, filterMode: 'str' })
+      return true
+    }
 
     // ns / namespace (no arg) → namespace picker
     if (trimmed === 'ns' || trimmed === 'namespace') {

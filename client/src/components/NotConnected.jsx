@@ -17,10 +17,10 @@ export function NotConnected() {
       <div className="mezz-wordmark" style={{ fontSize: 52, lineHeight: 1, marginBottom: 18 }}>
         mezza9
       </div>
-      <div style={{ color: '#7fd4ff', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
+      <div style={{ color: 'var(--mz-text-bright)', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
         No cluster connected
       </div>
-      <div style={{ color: '#5a8aa8', fontSize: 12.5, lineHeight: 1.7, maxWidth: 460 }}>
+      <div style={{ color: 'var(--mz-text-dim)', fontSize: 12.5, lineHeight: 1.7, maxWidth: 460 }}>
         Point Mezzanine at a Kubernetes cluster to get started:
         <ul style={{ listStyle: 'none', padding: 0, margin: '12px 0 0', textAlign: 'left', display: 'inline-block' }}>
           <li>• Mount your kubeconfig at <code style={codeStyle}>~/.kube/config</code></li>
@@ -28,12 +28,12 @@ export function NotConnected() {
           <li>• in-cluster: a ServiceAccount token is detected automatically</li>
         </ul>
       </div>
-      <div style={{ color: '#3a6a88', fontSize: 11, marginTop: 16 }}>
+      <div style={{ color: 'var(--mz-text-faint)', fontSize: 11, marginTop: 16 }}>
         Retrying every 5s…
       </div>
       {clusterError && (
         <pre style={{
-          color: '#ff6677', fontSize: 11, fontFamily: 'monospace', marginTop: 18,
+          color: 'var(--mz-danger-2)', fontSize: 11, fontFamily: 'monospace', marginTop: 18,
           maxWidth: 560, whiteSpace: 'pre-wrap', opacity: 0.85,
         }}>
           {clusterError}
@@ -44,6 +44,6 @@ export function NotConnected() {
 }
 
 const codeStyle = {
-  color: '#9fe6ff', background: '#0a1a2a', padding: '1px 5px',
+  color: 'var(--mz-text-bright)', background: 'var(--mz-surface)', padding: '1px 5px',
   borderRadius: 3, fontFamily: 'monospace', fontSize: 11.5,
 }

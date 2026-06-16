@@ -10,34 +10,34 @@ import { vim, Vim, getCM } from '@replit/codemirror-vim'
 
 // kHUD dark theme for the editor — cyan-on-navy to match the rest of the modal.
 const khudTheme = EditorView.theme({
-  '&': { color: '#c0d8f0', backgroundColor: 'transparent', height: '100%', fontSize: '12px' },
-  '.cm-content': { fontFamily: "'Courier New', monospace", caretColor: '#00d4ff', padding: '8px 0' },
+  '&': { color: 'var(--mz-text)', backgroundColor: 'transparent', height: '100%', fontSize: '12px' },
+  '.cm-content': { fontFamily: "'Courier New', monospace", caretColor: 'var(--mz-accent)', padding: '8px 0' },
   '.cm-scroller': { fontFamily: "'Courier New', monospace", lineHeight: '1.6' },
   '&.cm-focused': { outline: 'none' },
-  '.cm-gutters': { backgroundColor: 'rgba(0,0,0,0.25)', color: '#52789a', border: 'none', borderRight: '1px solid rgba(0,212,255,0.08)' },
-  '.cm-activeLineGutter': { backgroundColor: 'rgba(0,212,255,0.06)', color: '#84b0ce' },
-  '.cm-activeLine': { backgroundColor: 'rgba(0,212,255,0.04)' },
-  '.cm-cursor': { borderLeftColor: '#00d4ff' },
-  // Block cursor in vim normal/visual mode. codemirror-vim injects a salmon (#ff9696)
+  '.cm-gutters': { backgroundColor: 'rgba(0,0,0,0.25)', color: 'var(--mz-text-faint)', border: 'none', borderRight: '1px solid rgba(var(--mz-accent-rgb),0.08)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgba(var(--mz-accent-rgb),0.06)', color: 'var(--mz-accent-2)' },
+  '.cm-activeLine': { backgroundColor: 'rgba(var(--mz-accent-rgb),0.04)' },
+  '.cm-cursor': { borderLeftColor: 'var(--mz-accent)' },
+  // Block cursor in vim normal/visual mode. codemirror-vim injects a salmon (var(--mz-danger-2))
   // fat-cursor at highest precedence, so override the color with !important.
-  '.cm-fat-cursor': { background: '#00d4ff !important', color: '#02101a !important' },
-  '&:not(.cm-focused) .cm-fat-cursor': { background: 'none !important', outline: 'solid 1px #00d4ff' },
-  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': { background: 'rgba(0,212,255,0.3)' },
+  '.cm-fat-cursor': { background: 'var(--mz-accent) !important', color: 'var(--mz-bg) !important' },
+  '&:not(.cm-focused) .cm-fat-cursor': { background: 'none !important', outline: 'solid 1px var(--mz-accent)' },
+  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': { background: 'rgba(var(--mz-accent-rgb),0.3)' },
   // Vim command line / search panel at the bottom.
-  '.cm-panels': { backgroundColor: 'rgba(0,212,255,0.06)', color: '#c0d8f0', borderTop: '1px solid rgba(0,212,255,0.2)' },
+  '.cm-panels': { backgroundColor: 'rgba(var(--mz-accent-rgb),0.06)', color: 'var(--mz-text)', borderTop: '1px solid rgba(var(--mz-accent-rgb),0.2)' },
   '.cm-vim-panel': { padding: '4px 10px', fontFamily: "'Courier New', monospace", fontSize: '12px' },
-  '.cm-vim-panel input': { color: '#c0d8f0', fontFamily: "'Courier New', monospace" },
+  '.cm-vim-panel input': { color: 'var(--mz-text)', fontFamily: "'Courier New', monospace" },
 }, { dark: true })
 
 // Syntax highlight palette (yaml / json) tuned for the dark navy background.
 const khudHighlight = HighlightStyle.define([
-  { tag: [t.keyword, t.bool, t.null], color: '#ff8844' },
-  { tag: [t.string, t.special(t.string)], color: '#7ee787' },
-  { tag: [t.number], color: '#ffcc44' },
-  { tag: [t.propertyName, t.definition(t.propertyName)], color: '#00d4ff' },
-  { tag: [t.comment], color: '#6298ba', fontStyle: 'italic' },
-  { tag: [t.punctuation, t.separator], color: '#84b0ce' },
-  { tag: [t.invalid], color: '#ff4455' },
+  { tag: [t.keyword, t.bool, t.null], color: 'var(--mz-orange)' },
+  { tag: [t.string, t.special(t.string)], color: 'var(--mz-ok)' },
+  { tag: [t.number], color: 'var(--mz-warn-2)' },
+  { tag: [t.propertyName, t.definition(t.propertyName)], color: 'var(--mz-accent)' },
+  { tag: [t.comment], color: 'var(--mz-accent-2)', fontStyle: 'italic' },
+  { tag: [t.punctuation, t.separator], color: 'var(--mz-accent-2)' },
+  { tag: [t.invalid], color: 'var(--mz-danger)' },
 ])
 
 // Vim ex-commands (:w / :wq / :q) and the `?` help action are global in the vim

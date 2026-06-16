@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { alpha } from '../theme'
 import { useStore } from '../store'
 
 const CLUSTER_SCOPED = new Set(['nodes', 'pvs', 'namespaces', 'crds'])
@@ -12,7 +13,7 @@ function portSuggestions(resource, item) {
   return [...new Set((item?.containerPorts || []).map(String))]
 }
 
-const ACCENT = '#ffaa00'
+const ACCENT = 'var(--mz-orange)'
 
 export function PortForwardModal() {
   const pfModal          = useStore(s => s.pfModal)
@@ -71,7 +72,7 @@ export function PortForwardModal() {
 
   if (!pfModal) return null
   const { item, resource } = pfModal
-  const statusColor = s => s === 'active' ? '#00ffaa' : s === 'error' || s === 'stopped' ? '#ff4455' : '#ffcc00'
+  const statusColor = s => s === 'active' ? 'var(--mz-ok)' : s === 'error' || s === 'stopped' ? 'var(--mz-danger)' : 'var(--mz-warn)'
 
   return (
     <div
@@ -79,7 +80,7 @@ export function PortForwardModal() {
       style={{
         position: 'absolute', inset: 0, zIndex: 55,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(1,5,14,0.88)', backdropFilter: 'blur(8px)',
+        background: 'rgba(var(--mz-backdrop-rgb),0.88)', backdropFilter: 'blur(8px)',
       }}
     >
       <div
@@ -87,28 +88,28 @@ export function PortForwardModal() {
         style={{
           width: 'min(560px, 94vw)', maxHeight: '80vh', overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
-          borderRadius: 8, background: 'rgba(12,22,38,0.98)',
-          border: `1px solid ${ACCENT}30`, boxShadow: `0 0 50px ${ACCENT}12`,
+          borderRadius: 8, background: 'rgba(var(--mz-surface-rgb),0.98)',
+          border: `1px solid ${alpha(ACCENT, 19)}`, boxShadow: `0 0 50px ${alpha(ACCENT, 7)}`,
         }}
       >
         {/* Header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '10px 16px', borderBottom: `1px solid ${ACCENT}18`, flexShrink: 0,
+          padding: '10px 16px', borderBottom: `1px solid ${alpha(ACCENT, 9)}`, flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: '0.12em', color: ACCENT }}>PORT-FORWARD</span>
-            <span style={{ fontSize: 11, color: '#6298ba' }}>
+            <span style={{ fontSize: 11, color: 'var(--mz-accent-2)' }}>
               {resource.slice(0, -1)} / {item.name}
-              {item.namespace && <span style={{ color: '#527aa0' }}> · {item.namespace}</span>}
+              {item.namespace && <span style={{ color: 'var(--mz-text-faint)' }}> · {item.namespace}</span>}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 10, color: '#4a6e8e' }}>ESC · close</span>
+            <span style={{ fontSize: 10, color: 'var(--mz-text-faint)' }}>ESC · close</span>
             <button onClick={closePortForward}
-              style={{ fontSize: 18, lineHeight: 1, color: '#5e88aa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
-              onMouseEnter={e => e.target.style.color = '#c0d8f0'}
-              onMouseLeave={e => e.target.style.color = '#5e88aa'}
+              style={{ fontSize: 18, lineHeight: 1, color: 'var(--mz-text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+              onMouseEnter={e => e.target.style.color = 'var(--mz-text)'}
+              onMouseLeave={e => e.target.style.color = 'var(--mz-text-dim)'}
             >×</button>
           </div>
         </div>
@@ -116,15 +117,15 @@ export function PortForwardModal() {
         {/* New forward form */}
         <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-end', gap: 12, flexShrink: 0 }}>
           <PortInput label="LOCAL"  value={local}  onChange={setLocal}  onEnter={start} placeholder={remote || 'auto'} />
-          <span style={{ color: '#5e88aa', fontSize: 16, paddingBottom: 4 }}>→</span>
+          <span style={{ color: 'var(--mz-text-dim)', fontSize: 16, paddingBottom: 4 }}>→</span>
           <PortInput label="REMOTE" value={remote} onChange={setRemote} onEnter={start} inputRef={remoteRef} placeholder="port" />
           <button
             onClick={start} disabled={busy || !remote}
             style={{
               fontSize: 11, padding: '5px 16px', borderRadius: 4, marginBottom: 1,
               cursor: busy || !remote ? 'default' : 'pointer',
-              color: busy || !remote ? '#5a6a3a' : '#0a1220',
-              background: busy || !remote ? 'rgba(255,170,0,0.15)' : ACCENT,
+              color: busy || !remote ? 'var(--mz-text-muted)' : 'var(--mz-bg)',
+              background: busy || !remote ? 'rgba(var(--mz-orange-rgb),0.15)' : ACCENT,
               border: `1px solid ${ACCENT}`, fontFamily: 'inherit', fontWeight: 'bold',
               transition: 'all 0.15s',
             }}
@@ -133,31 +134,31 @@ export function PortForwardModal() {
         {/* Port suggestions from the object */}
         {suggestions.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 16px 12px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 9, color: '#6298ba', letterSpacing: '0.08em', textTransform: 'uppercase' }}>ports:</span>
+            <span style={{ fontSize: 9, color: 'var(--mz-accent-2)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>ports:</span>
             {suggestions.map(p => {
               const active = remote === p
               return (
                 <button key={p} onClick={() => { setRemote(p); setLocal(p) }} style={{
                   fontSize: 10, padding: '2px 9px', borderRadius: 3, cursor: 'pointer', fontFamily: 'monospace',
-                  color: active ? '#0a1220' : ACCENT,
-                  background: active ? ACCENT : 'rgba(255,170,0,0.08)',
-                  border: `1px solid ${active ? ACCENT : 'rgba(255,170,0,0.3)'}`,
+                  color: active ? 'var(--mz-bg)' : ACCENT,
+                  background: active ? ACCENT : 'rgba(var(--mz-orange-rgb),0.08)',
+                  border: `1px solid ${active ? ACCENT : 'rgba(var(--mz-orange-rgb),0.3)'}`,
                   fontWeight: active ? 'bold' : 'normal', transition: 'all 0.12s',
                 }}>{p}</button>
               )
             })}
           </div>
         )}
-        {error && <div style={{ padding: '0 16px 8px', fontSize: 10, color: '#ff6677' }}>{error}</div>}
-        {demoMode && <div style={{ padding: '0 16px 8px', fontSize: 10, color: '#ffcc0099' }}>demo mode — forwards are simulated</div>}
+        {error && <div style={{ padding: '0 16px 8px', fontSize: 10, color: 'var(--mz-danger-2)' }}>{error}</div>}
+        {demoMode && <div style={{ padding: '0 16px 8px', fontSize: 10, color: 'rgba(var(--mz-warn-rgb), 0.6)' }}>demo mode — forwards are simulated</div>}
 
         {/* Active forwards */}
-        <div style={{ borderTop: `1px solid ${ACCENT}12`, overflowY: 'auto', flex: 1 }}>
-          <div style={{ padding: '8px 16px 4px', fontSize: 9, letterSpacing: '0.1em', color: '#6298ba', textTransform: 'uppercase' }}>
+        <div style={{ borderTop: `1px solid ${alpha(ACCENT, 7)}`, overflowY: 'auto', flex: 1 }}>
+          <div style={{ padding: '8px 16px 4px', fontSize: 9, letterSpacing: '0.1em', color: 'var(--mz-accent-2)', textTransform: 'uppercase' }}>
             Active forwards ({forwards.length})
           </div>
           {forwards.length === 0 && (
-            <div style={{ padding: '4px 16px 14px', fontSize: 11, color: '#5e88aa', fontStyle: 'italic' }}>None running.</div>
+            <div style={{ padding: '4px 16px 14px', fontSize: 11, color: 'var(--mz-text-dim)', fontStyle: 'italic' }}>None running.</div>
           )}
           {forwards.map(f => (
             <div key={f.id} style={{
@@ -167,19 +168,19 @@ export function PortForwardModal() {
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor(f.status), boxShadow: `0 0 6px ${statusColor(f.status)}`, flexShrink: 0 }} />
               {f.status === 'active'
                 ? <a href={`http://127.0.0.1:${f.localPort}`} target="_blank" rel="noreferrer"
-                    style={{ fontSize: 11, color: '#00d4ff', fontFamily: 'monospace', textDecoration: 'none' }}>
+                    style={{ fontSize: 11, color: 'var(--mz-accent)', fontFamily: 'monospace', textDecoration: 'none' }}>
                     127.0.0.1:{f.localPort}
                   </a>
-                : <span style={{ fontSize: 11, color: '#7a9ab8', fontFamily: 'monospace' }}>127.0.0.1:{f.localPort}</span>}
-              <span style={{ fontSize: 11, color: '#5e88aa', fontFamily: 'monospace' }}>→ {f.remotePort}</span>
-              <span style={{ fontSize: 10, color: '#72a0c2', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                : <span style={{ fontSize: 11, color: 'var(--mz-text-dim)', fontFamily: 'monospace' }}>127.0.0.1:{f.localPort}</span>}
+              <span style={{ fontSize: 11, color: 'var(--mz-text-dim)', fontFamily: 'monospace' }}>→ {f.remotePort}</span>
+              <span style={{ fontSize: 10, color: 'var(--mz-accent-2)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {f.resource.slice(0, -1)}/{f.name}
                 <span style={{ color: statusColor(f.status), marginLeft: 6 }}>{f.status}</span>
-                {f.error && <span style={{ color: '#ff667799', marginLeft: 6 }}>{f.error}</span>}
+                {f.error && <span style={{ color: 'rgba(var(--mz-danger-2-rgb), 0.6)', marginLeft: 6 }}>{f.error}</span>}
               </span>
               <button onClick={() => stop(f.id)} style={{
                 fontSize: 10, padding: '2px 10px', borderRadius: 3, cursor: 'pointer',
-                color: '#ff8899', background: 'rgba(255,68,85,0.08)', border: '1px solid rgba(255,68,85,0.3)',
+                color: 'var(--mz-danger-2)', background: 'rgba(var(--mz-danger-rgb),0.08)', border: '1px solid rgba(var(--mz-danger-rgb),0.3)',
                 fontFamily: 'inherit',
               }}>Stop</button>
             </div>
@@ -193,7 +194,7 @@ export function PortForwardModal() {
 function PortInput({ label, value, onChange, onEnter, placeholder, inputRef }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <span style={{ fontSize: 9, color: '#6298ba', letterSpacing: '0.08em' }}>{label}</span>
+      <span style={{ fontSize: 9, color: 'var(--mz-accent-2)', letterSpacing: '0.08em' }}>{label}</span>
       <input
         ref={inputRef}
         value={value}
@@ -202,8 +203,8 @@ function PortInput({ label, value, onChange, onEnter, placeholder, inputRef }) {
         placeholder={placeholder}
         inputMode="numeric"
         style={{
-          width: 80, background: 'rgba(255,170,0,0.06)', border: '1px solid rgba(255,170,0,0.25)',
-          color: '#ffd47a', fontSize: 12, padding: '4px 8px', borderRadius: 4,
+          width: 80, background: 'rgba(var(--mz-orange-rgb),0.06)', border: '1px solid rgba(var(--mz-orange-rgb),0.25)',
+          color: 'var(--mz-warn-2)', fontSize: 12, padding: '4px 8px', borderRadius: 4,
           fontFamily: 'monospace', outline: 'none',
         }}
       />

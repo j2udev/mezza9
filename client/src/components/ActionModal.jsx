@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { alpha } from '../theme'
 import { useStore } from '../store'
 import { VimEditor } from './VimEditor'
 import { VimHelpOverlay } from './VimHelpOverlay'
@@ -74,8 +75,8 @@ function highlight(text, term, isCurrent) {
     if (hit > pos) parts.push(<span key={pos}>{text.slice(pos, hit)}</span>)
     parts.push(
       <span key={hit} style={{
-        background: isCurrent ? 'rgba(255,204,68,0.55)' : 'rgba(255,204,68,0.25)',
-        color: isCurrent ? '#fff' : '#ffee88',
+        background: isCurrent ? 'rgba(var(--mz-warn-2-rgb),0.55)' : 'rgba(var(--mz-warn-2-rgb),0.25)',
+        color: isCurrent ? '#fff' : 'var(--mz-warn-2)',
         borderRadius: 2,
       }}>
         {text.slice(hit, hit + term.length)}
@@ -89,13 +90,13 @@ function highlight(text, term, isCurrent) {
 }
 
 function LogLine({ line, search, isCurrent }) {
-  let color = '#a0c8a0'
-  if (/\bERROR\b|\bFATAL\b|\bPANIC\b/i.test(line)) color = '#ff6677'
-  else if (/\bWARN\b|\bWARNING\b/i.test(line)) color = '#ffcc44'
-  else if (/\bDEBUG\b|\bTRACE\b/i.test(line)) color = '#5a8a9a'
-  else if (/\bINFO\b/i.test(line)) color = '#88c4a0'
+  let color = 'var(--mz-ok)'
+  if (/\bERROR\b|\bFATAL\b|\bPANIC\b/i.test(line)) color = 'var(--mz-danger-2)'
+  else if (/\bWARN\b|\bWARNING\b/i.test(line)) color = 'var(--mz-warn-2)'
+  else if (/\bDEBUG\b|\bTRACE\b/i.test(line)) color = 'var(--mz-text-dim)'
+  else if (/\bINFO\b/i.test(line)) color = 'var(--mz-ok)'
   return (
-    <div style={{ color, lineHeight: 1.7, background: isCurrent ? 'rgba(255,204,68,0.08)' : 'transparent' }}>
+    <div style={{ color, lineHeight: 1.7, background: isCurrent ? 'rgba(var(--mz-warn-2-rgb),0.08)' : 'transparent' }}>
       {search ? highlight(line || ' ', search, isCurrent) : (line || ' ')}
     </div>
   )
@@ -104,8 +105,8 @@ function LogLine({ line, search, isCurrent }) {
 function DescribeLine({ line, search, isCurrent }) {
   return (
     <div style={{
-      color: '#c0d8f0', lineHeight: 1.7, fontFamily: "'Courier New', monospace", fontSize: 11,
-      background: isCurrent ? 'rgba(255,204,68,0.08)' : 'transparent',
+      color: 'var(--mz-text)', lineHeight: 1.7, fontFamily: "'Courier New', monospace", fontSize: 11,
+      background: isCurrent ? 'rgba(var(--mz-warn-2-rgb),0.08)' : 'transparent',
       whiteSpace: 'pre-wrap',
     }}>
       {search ? highlight(line, search, isCurrent) : line}
@@ -114,38 +115,38 @@ function DescribeLine({ line, search, isCurrent }) {
 }
 
 function YamlLine({ line, search, isCurrent }) {
-  const bg = isCurrent ? 'rgba(255,204,68,0.08)' : 'transparent'
+  const bg = isCurrent ? 'rgba(var(--mz-warn-2-rgb),0.08)' : 'transparent'
   // whiteSpace: pre-wrap preserves YAML/JSON indentation (HTML would otherwise collapse it)
   const base = { lineHeight: 1.7, background: bg, whiteSpace: 'pre-wrap' }
   if (/^\s*#/.test(line)) {
-    return <div style={{ ...base, color: '#4a8a5a' }}>
+    return <div style={{ ...base, color: 'var(--mz-ok)' }}>
       {search ? highlight(line, search, isCurrent) : line}
     </div>
   }
   const m = line.match(/^(\s*-?\s*)([^:\s][^:]*?):\s*(.*)$/)
   if (m) {
     const [, indent, key, val] = m
-    const valColor = val === '' ? '#8a9cae'
-      : (val === 'null' || val === '~') ? '#aa77ff'
-      : (val === 'true' || val === 'false') ? '#aa77ff'
-      : /^-?\d/.test(val) ? '#ffa040'
-      : (val.startsWith('"') || val.startsWith("'")) ? '#88d4a0'
-      : '#c0d8f0'
+    const valColor = val === '' ? 'var(--mz-text-muted)'
+      : (val === 'null' || val === '~') ? 'var(--mz-alt)'
+      : (val === 'true' || val === 'false') ? 'var(--mz-alt)'
+      : /^-?\d/.test(val) ? 'var(--mz-orange)'
+      : (val.startsWith('"') || val.startsWith("'")) ? 'var(--mz-ok)'
+      : 'var(--mz-text)'
     return (
       <div style={base}>
-        <span style={{ color: '#8a9cae' }}>{indent}</span>
-        <span style={{ color: '#5ac8fa' }}>{search ? highlight(key, search, isCurrent) : key}</span>
-        <span style={{ color: '#8a9cae' }}>:</span>
+        <span style={{ color: 'var(--mz-text-muted)' }}>{indent}</span>
+        <span style={{ color: 'var(--mz-accent-2)' }}>{search ? highlight(key, search, isCurrent) : key}</span>
+        <span style={{ color: 'var(--mz-text-muted)' }}>:</span>
         {val && <span style={{ color: valColor }}>{search ? highlight(` ${val}`, search, isCurrent) : ` ${val}`}</span>}
       </div>
     )
   }
   if (/^\s*-\s/.test(line)) {
-    return <div style={{ ...base, color: '#aac8e0' }}>
+    return <div style={{ ...base, color: 'var(--mz-text)' }}>
       {search ? highlight(line, search, isCurrent) : line}
     </div>
   }
-  return <div style={{ ...base, color: '#8aabb8' }}>
+  return <div style={{ ...base, color: 'var(--mz-text-mid)' }}>
     {search ? highlight(line, search, isCurrent) : line}
   </div>
 }
@@ -164,7 +165,7 @@ function ContentLines({ lines, kind, search, lineToMatchIdx, matchIndex, showLin
             ref={isMatch ? (el => { if (el) matchRefs.current[mn] = el }) : undefined}
             style={{ display: 'flex' }}>
             {showLineNumbers && (
-              <span style={{ width: 36, flexShrink: 0, textAlign: 'right', paddingRight: 10, color: '#52789a', userSelect: 'none', fontSize: 10 }}>
+              <span style={{ width: 36, flexShrink: 0, textAlign: 'right', paddingRight: 10, color: 'var(--mz-text-faint)', userSelect: 'none', fontSize: 10 }}>
                 {i + 1}
               </span>
             )}
@@ -174,7 +175,7 @@ function ContentLines({ lines, kind, search, lineToMatchIdx, matchIndex, showLin
           </div>
         )
       })}
-      {lines.length === 0 && <div style={{ color: '#6298ba' }}>{emptyLabel || 'No content.'}</div>}
+      {lines.length === 0 && <div style={{ color: 'var(--mz-accent-2)' }}>{emptyLabel || 'No content.'}</div>}
     </div>
   )
 }
@@ -182,10 +183,10 @@ function ContentLines({ lines, kind, search, lineToMatchIdx, matchIndex, showLin
 function ControlSelect({ value, onChange, options, label }) {
   return (
     <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <span style={{ fontSize: 9, color: '#6298ba', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
+      <span style={{ fontSize: 9, color: 'var(--mz-accent-2)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</span>
       <select value={value} onChange={e => onChange(e.target.value)} style={{
-        background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.18)',
-        color: '#7ab8d8', fontSize: 10, padding: '1px 4px', borderRadius: 3,
+        background: 'rgba(var(--mz-accent-rgb),0.06)', border: '1px solid rgba(var(--mz-accent-rgb),0.18)',
+        color: 'var(--mz-accent-2)', fontSize: 10, padding: '1px 4px', borderRadius: 3,
         fontFamily: 'inherit', cursor: 'pointer', outline: 'none',
       }}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -200,9 +201,9 @@ function VimHint({ k, label }) {
       <span style={{
         display: 'inline-block', padding: '0 4px', borderRadius: 2, fontSize: 9,
         background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-        color: '#84b0ce', fontFamily: 'inherit',
+        color: 'var(--mz-accent-2)', fontFamily: 'inherit',
       }}>{k}</span>
-      <span style={{ fontSize: 9, color: '#52789a' }}>{label}</span>
+      <span style={{ fontSize: 9, color: 'var(--mz-text-faint)' }}>{label}</span>
     </span>
   )
 }
@@ -734,13 +735,13 @@ export function ActionModal() {
 
   const isHelm = type.startsWith('helm-')
   // Inspect view color tracks the active format (describe = purple, yaml/json/edit = cyan).
-  const inspectColor = editMode ? '#00d4ff' : viewFormat === 'describe' ? '#aa55ff' : '#00d4ff'
-  const lineColor = type === 'logs' ? '#00ffaa'
+  const inspectColor = editMode ? 'var(--mz-accent)' : viewFormat === 'describe' ? 'var(--mz-alt)' : 'var(--mz-accent)'
+  const lineColor = type === 'logs' ? 'var(--mz-ok)'
     : isInspect ? inspectColor
-    : (type === 'helm-values' || type === 'helm-manifest') ? '#00d4ff'
-    : type === 'helm-history' ? '#ff8844'
-    : type === 'helm-notes' ? '#ffaa00'
-    : '#aa55ff'
+    : (type === 'helm-values' || type === 'helm-manifest') ? 'var(--mz-accent)'
+    : type === 'helm-history' ? 'var(--mz-orange)'
+    : type === 'helm-notes' ? 'var(--mz-orange)'
+    : 'var(--mz-alt)'
   const displayName = resource.startsWith('cr:') ? resource.slice(3).split('/').pop() : resource
   const isYamlOrEdit = isInspect  // retained name for downstream conditionals
   const typeLabel = type === 'helm-values' ? (helmAllValues ? 'ALL VALUES' : 'VALUES')
@@ -775,7 +776,7 @@ export function ActionModal() {
       style={{
         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
         justifyContent: 'center', zIndex: 50,
-        background: 'rgba(1,5,14,0.88)', backdropFilter: 'blur(8px)',
+        background: 'rgba(var(--mz-backdrop-rgb),0.88)', backdropFilter: 'blur(8px)',
       }}
       onClick={closeModal}
     >
@@ -785,9 +786,9 @@ export function ActionModal() {
           borderRadius: 8, overflow: 'hidden',
           width: (isYamlOrEdit || type === 'helm-history') ? 'min(920px, 94vw)' : 'min(860px, 92vw)',
           height: 'min(640px, 86vh)',
-          background: 'rgba(12,22,38,0.98)',
-          border: `1px solid ${lineColor}28`,
-          boxShadow: `0 0 50px ${lineColor}12`,
+          background: 'rgba(var(--mz-surface-rgb),0.98)',
+          border: `1px solid ${alpha(lineColor, 16)}`,
+          boxShadow: `0 0 50px ${alpha(lineColor, 7)}`,
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -795,15 +796,15 @@ export function ActionModal() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '10px 16px', flexShrink: 0,
-          borderBottom: `1px solid ${lineColor}18`,
+          borderBottom: `1px solid ${alpha(lineColor, 9)}`,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: '0.12em', color: lineColor }}>
               {typeLabel}
             </span>
-            <span style={{ fontSize: 11, color: '#6298ba' }}>
+            <span style={{ fontSize: 11, color: 'var(--mz-accent-2)' }}>
               {displayName.slice(0, -1)} / {item.name}
-              {item.namespace && <span style={{ color: '#527aa0' }}> · {item.namespace}</span>}
+              {item.namespace && <span style={{ color: 'var(--mz-text-faint)' }}> · {item.namespace}</span>}
             </span>
             {isSecret && isInspect && (viewFormat === 'yaml' || viewFormat === 'json' || editMode) && (
               <button
@@ -818,9 +819,9 @@ export function ActionModal() {
                 title={secretDecoded ? 'Re-encode secret values' : 'Decode base64 secret values'}
                 style={{
                   fontSize: 10, padding: '2px 8px', borderRadius: 3, cursor: 'pointer',
-                  color: secretDecoded ? '#ff8844' : '#84b0ce',
-                  background: secretDecoded ? 'rgba(255,136,68,0.12)' : 'rgba(0,212,255,0.06)',
-                  border: `1px solid ${secretDecoded ? 'rgba(255,136,68,0.4)' : 'rgba(0,212,255,0.18)'}`,
+                  color: secretDecoded ? 'var(--mz-orange)' : 'var(--mz-accent-2)',
+                  background: secretDecoded ? 'rgba(var(--mz-orange-rgb),0.12)' : 'rgba(var(--mz-accent-rgb),0.06)',
+                  border: `1px solid ${secretDecoded ? 'rgba(var(--mz-orange-rgb),0.4)' : 'rgba(var(--mz-accent-rgb),0.18)'}`,
                   fontFamily: 'inherit', transition: 'all 0.15s',
                 }}
               >{secretDecoded ? '🔓 Decoded' : '🔒 Decode'}</button>
@@ -832,10 +833,10 @@ export function ActionModal() {
             {type !== 'logs' && !editMode && type !== 'helm-history' && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 4,
-                background: search ? 'rgba(255,204,68,0.1)' : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${search ? 'rgba(255,204,68,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                background: search ? 'rgba(var(--mz-warn-2-rgb),0.1)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${search ? 'rgba(var(--mz-warn-2-rgb),0.3)' : 'rgba(255,255,255,0.1)'}`,
               }}>
-                <span style={{ fontSize: 11, color: search ? '#ffcc44' : '#72a4c6', flexShrink: 0 }}>/</span>
+                <span style={{ fontSize: 11, color: search ? 'var(--mz-warn-2)' : 'var(--mz-accent-2)', flexShrink: 0 }}>/</span>
                 <input
                   ref={searchRef}
                   value={search}
@@ -849,22 +850,22 @@ export function ActionModal() {
                   placeholder="search…"
                   style={{
                     width: 130, background: 'transparent', border: 'none', outline: 'none',
-                    color: '#ffee88', fontSize: 11, fontFamily: 'inherit',
+                    color: 'var(--mz-warn-2)', fontSize: 11, fontFamily: 'inherit',
                   }}
                 />
                 {search && totalMatches > 0 && (
-                  <span style={{ fontSize: 10, color: '#ffcc44', flexShrink: 0 }}>{matchIndex + 1}/{totalMatches}</span>
+                  <span style={{ fontSize: 10, color: 'var(--mz-warn-2)', flexShrink: 0 }}>{matchIndex + 1}/{totalMatches}</span>
                 )}
                 {search && totalMatches === 0 && (
-                  <span style={{ fontSize: 10, color: '#ff6677', flexShrink: 0 }}>0</span>
+                  <span style={{ fontSize: 10, color: 'var(--mz-danger-2)', flexShrink: 0 }}>0</span>
                 )}
               </div>
             )}
-            <span style={{ fontSize: 10, color: '#4a6e8e' }}>ESC · close</span>
+            <span style={{ fontSize: 10, color: 'var(--mz-text-faint)' }}>ESC · close</span>
             <button onClick={closeModal}
-              style={{ fontSize: 18, lineHeight: 1, color: '#5e88aa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
-              onMouseEnter={e => e.target.style.color = '#c0d8f0'}
-              onMouseLeave={e => e.target.style.color = '#5e88aa'}
+              style={{ fontSize: 18, lineHeight: 1, color: 'var(--mz-text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+              onMouseEnter={e => e.target.style.color = 'var(--mz-text)'}
+              onMouseLeave={e => e.target.style.color = 'var(--mz-text-dim)'}
             >×</button>
           </div>
         </div>
@@ -874,7 +875,7 @@ export function ActionModal() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '6px 16px',
             flexShrink: 0, flexWrap: 'wrap',
-            borderBottom: `1px solid ${lineColor}10`,
+            borderBottom: `1px solid ${alpha(lineColor, 6)}`,
             background: 'rgba(0,0,0,0.2)',
           }}>
             <ControlSelect label="Tail"  value={logTail}       onChange={setLogTail}       options={TAIL_OPTIONS}  />
@@ -886,7 +887,7 @@ export function ActionModal() {
               <ControlSelect label="Pod" value={logPodFilter} onChange={setLogPodFilter} options={podOptions} />
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 140 }}>
-              <span style={{ fontSize: 9, color: '#6298ba', letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>/</span>
+              <span style={{ fontSize: 9, color: 'var(--mz-accent-2)', letterSpacing: '0.06em', textTransform: 'uppercase', flexShrink: 0 }}>/</span>
               <input
                 ref={filterRef}
                 value={logFilter}
@@ -897,26 +898,26 @@ export function ActionModal() {
                 }}
                 placeholder="grep…"
                 style={{
-                  flex: 1, background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.18)',
-                  color: '#c0d8f0', fontSize: 10, padding: '2px 6px', borderRadius: 3,
+                  flex: 1, background: 'rgba(var(--mz-accent-rgb),0.06)', border: '1px solid rgba(var(--mz-accent-rgb),0.18)',
+                  color: 'var(--mz-text)', fontSize: 10, padding: '2px 6px', borderRadius: 3,
                   fontFamily: 'inherit', outline: 'none',
                 }}
               />
               {logFilter && (
-                <span style={{ fontSize: 9, color: '#ffcc44' }}>
+                <span style={{ fontSize: 9, color: 'var(--mz-warn-2)' }}>
                   {matchIndex + 1}/{filteredLogLines.length}
                 </span>
               )}
             </div>
             <button onClick={fetchLogs} style={{
               fontSize: 10, padding: '2px 8px', borderRadius: 3, cursor: 'pointer',
-              color: lineColor, background: `${lineColor}12`, border: `1px solid ${lineColor}30`,
+              color: lineColor, background: `${alpha(lineColor, 7)}`, border: `1px solid ${alpha(lineColor, 19)}`,
               fontFamily: 'inherit',
             }}>↺</button>
             <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
               <input type="checkbox" checked={logAutoScroll} onChange={e => setLogAutoScroll(e.target.checked)}
                 style={{ accentColor: lineColor }} />
-              <span style={{ fontSize: 9, color: '#6298ba', textTransform: 'uppercase', letterSpacing: '0.06em' }}>scroll</span>
+              <span style={{ fontSize: 9, color: 'var(--mz-accent-2)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>scroll</span>
             </label>
           </div>
         )}
@@ -939,7 +940,7 @@ export function ActionModal() {
             </div>
           )}
           {fetchError && !loading && (
-            <div style={{ fontSize: 11, color: '#ff6677' }}>Error: {fetchError}</div>
+            <div style={{ fontSize: 11, color: 'var(--mz-danger-2)' }}>Error: {fetchError}</div>
           )}
           {!loading && !fetchError && (
             <>
@@ -960,7 +961,7 @@ export function ActionModal() {
                       )
                     })}
                     {lines.length === 0 && (
-                      <div style={{ color: '#6298ba', fontStyle: 'italic' }}>No log output.</div>
+                      <div style={{ color: 'var(--mz-accent-2)', fontStyle: 'italic' }}>No log output.</div>
                     )}
                   </div>
                 )
@@ -981,7 +982,7 @@ export function ActionModal() {
               )}
 
               {isInspect && editMode && (
-                <div style={{ height: '100%', minHeight: 400, border: '1px solid rgba(0,212,255,0.15)', borderRadius: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', minHeight: 400, border: '1px solid rgba(var(--mz-accent-rgb),0.15)', borderRadius: 4, overflow: 'hidden' }}>
                   <VimEditor
                     value={editContent}
                     onChange={v => { setEditContent(v); setEditResult(null) }}
@@ -1032,26 +1033,26 @@ export function ActionModal() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                     <button onClick={() => setHistoryValues(null)} style={{
                       fontSize: 10, padding: '2px 10px', borderRadius: 3, cursor: 'pointer',
-                      color: '#ff8844', background: 'rgba(255,136,68,0.08)', border: '1px solid rgba(255,136,68,0.3)',
+                      color: 'var(--mz-orange)', background: 'rgba(var(--mz-orange-rgb),0.08)', border: '1px solid rgba(var(--mz-orange-rgb),0.3)',
                       fontFamily: 'inherit',
                     }}>← History</button>
-                    <span style={{ fontSize: 11, color: '#ff8844', letterSpacing: '0.06em' }}>
+                    <span style={{ fontSize: 11, color: 'var(--mz-orange)', letterSpacing: '0.06em' }}>
                       Revision {historyValues.revision} · {historyValuesAll ? 'all values' : 'user values'}
                     </span>
-                    <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(0,212,255,0.18)' }}>
+                    <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(var(--mz-accent-rgb),0.18)' }}>
                       {[{ k: false, l: 'USER' }, { k: true, l: 'ALL' }].map(({ k, l }) => (
                         <button key={l} onClick={() => fetchRevisionValues(historyValues.revision, k)} style={{
                           fontSize: 9, padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em',
-                          color: historyValuesAll === k ? '#00d4ff' : '#5e88aa',
-                          background: historyValuesAll === k ? 'rgba(0,212,255,0.15)' : 'transparent',
+                          color: historyValuesAll === k ? 'var(--mz-accent)' : 'var(--mz-text-dim)',
+                          background: historyValuesAll === k ? 'rgba(var(--mz-accent-rgb),0.15)' : 'transparent',
                           border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
                         }}>{l}</button>
                       ))}
                     </div>
-                    <span style={{ fontSize: 9, color: '#5e88aa' }}>⇥ user/all</span>
+                    <span style={{ fontSize: 9, color: 'var(--mz-text-dim)' }}>⇥ user/all</span>
                   </div>
                   {historyValuesBusy
-                    ? <div style={{ fontSize: 11, color: '#ff8844', opacity: 0.7 }}>Loading values…</div>
+                    ? <div style={{ fontSize: 11, color: 'var(--mz-orange)', opacity: 0.7 }}>Loading values…</div>
                     : <ContentLines
                         lines={(historyValues.content || '').split('\n')}
                         kind="yaml" search={null} lineToMatchIdx={{}} matchIndex={-1}
@@ -1064,14 +1065,14 @@ export function ActionModal() {
               {type === 'helm-history' && !historyValues && (
                 <div>
                   {helmHistory.length === 0 && !loading && (
-                    <div style={{ color: '#6298ba', fontStyle: 'italic', fontSize: 11 }}>No history available.</div>
+                    <div style={{ color: 'var(--mz-accent-2)', fontStyle: 'italic', fontSize: 11 }}>No history available.</div>
                   )}
                   {helmHistory.length > 0 && (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                       <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(0,212,255,0.15)' }}>
+                        <tr style={{ borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.15)' }}>
                           {['REV', 'UPDATED', 'STATUS', 'CHART', 'DESCRIPTION', ''].map(h => (
-                            <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontSize: 10, color: '#72a4c6', letterSpacing: '0.08em', fontWeight: 'normal' }}>{h}</th>
+                            <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontSize: 10, color: 'var(--mz-accent-2)', letterSpacing: '0.08em', fontWeight: 'normal' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -1084,21 +1085,21 @@ export function ActionModal() {
                             <tr key={row.revision}
                               ref={isCursor ? historyRowRef : undefined}
                               style={{
-                                borderBottom: '1px solid rgba(0,212,255,0.06)',
-                                background: isCursor ? 'rgba(255,204,68,0.12)' : isDeployed ? 'rgba(0,255,170,0.04)' : 'transparent',
-                                boxShadow: isCursor ? 'inset 2px 0 0 #ffcc44' : 'none',
+                                borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.06)',
+                                background: isCursor ? 'rgba(var(--mz-warn-2-rgb),0.12)' : isDeployed ? 'rgba(var(--mz-ok-rgb),0.04)' : 'transparent',
+                                boxShadow: isCursor ? 'inset 2px 0 0 var(--mz-warn-2)' : 'none',
                               }}>
-                              <td style={{ padding: '6px 8px', color: '#00d4ff', fontFamily: 'monospace' }}>{row.revision}</td>
-                              <td style={{ padding: '6px 8px', color: '#6298ba', fontFamily: 'monospace', fontSize: 10 }}>{row.updated}</td>
-                              <td style={{ padding: '6px 8px', color: isDeployed ? '#00ffaa' : '#8a9cae' }}>{row.status}</td>
-                              <td style={{ padding: '6px 8px', color: '#aa55ff' }}>{row.chart}</td>
-                              <td style={{ padding: '6px 8px', color: '#84b0ce', fontSize: 10 }}>{row.description}</td>
+                              <td style={{ padding: '6px 8px', color: 'var(--mz-accent)', fontFamily: 'monospace' }}>{row.revision}</td>
+                              <td style={{ padding: '6px 8px', color: 'var(--mz-accent-2)', fontFamily: 'monospace', fontSize: 10 }}>{row.updated}</td>
+                              <td style={{ padding: '6px 8px', color: isDeployed ? 'var(--mz-ok)' : 'var(--mz-text-muted)' }}>{row.status}</td>
+                              <td style={{ padding: '6px 8px', color: 'var(--mz-alt)' }}>{row.chart}</td>
+                              <td style={{ padding: '6px 8px', color: 'var(--mz-accent-2)', fontSize: 10 }}>{row.description}</td>
                               <td style={{ padding: '6px 8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                                 <button
                                   onClick={() => fetchRevisionValues(row.revision)}
                                   style={{
                                     fontSize: 10, padding: '2px 10px', borderRadius: 3, cursor: 'pointer', marginRight: 6,
-                                    color: '#00ffaa', background: 'rgba(0,255,170,0.08)', border: '1px solid rgba(0,255,170,0.25)',
+                                    color: 'var(--mz-ok)', background: 'rgba(var(--mz-ok-rgb),0.08)', border: '1px solid rgba(var(--mz-ok-rgb),0.25)',
                                     fontFamily: 'inherit',
                                   }}
                                 >Values</button>
@@ -1108,9 +1109,9 @@ export function ActionModal() {
                                     disabled={rbStatus === 'rolling'}
                                     style={{
                                       fontSize: 10, padding: '2px 10px', borderRadius: 3, cursor: rbStatus === 'rolling' ? 'default' : 'pointer',
-                                      color: rbStatus === 'ok' ? '#00ffaa' : rbStatus === 'err' ? '#ff4455' : '#ff8844',
-                                      background: 'rgba(255,136,68,0.08)',
-                                      border: '1px solid rgba(255,136,68,0.3)',
+                                      color: rbStatus === 'ok' ? 'var(--mz-ok)' : rbStatus === 'err' ? 'var(--mz-danger)' : 'var(--mz-orange)',
+                                      background: 'rgba(var(--mz-orange-rgb),0.08)',
+                                      border: '1px solid rgba(var(--mz-orange-rgb),0.3)',
                                       fontFamily: 'inherit', opacity: rbStatus === 'rolling' ? 0.6 : 1,
                                     }}
                                   >
@@ -1118,7 +1119,7 @@ export function ActionModal() {
                                   </button>
                                 )}
                                 {isDeployed && (
-                                  <span style={{ fontSize: 10, color: '#00ffaa' }}>● current</span>
+                                  <span style={{ fontSize: 10, color: 'var(--mz-ok)' }}>● current</span>
                                 )}
                               </td>
                             </tr>
@@ -1139,10 +1140,10 @@ export function ActionModal() {
         {editMode && editResult && !editResult.ok && (
           <div style={{
             flexShrink: 0, maxHeight: 170, overflowY: 'auto', padding: '8px 16px 10px',
-            borderTop: '1px solid rgba(255,68,85,0.4)', background: 'rgba(255,68,85,0.08)',
+            borderTop: '1px solid rgba(var(--mz-danger-rgb),0.4)', background: 'rgba(var(--mz-danger-rgb),0.08)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontSize: 10, fontWeight: 'bold', letterSpacing: '0.1em', color: '#ff6677' }}>
+              <span style={{ fontSize: 10, fontWeight: 'bold', letterSpacing: '0.1em', color: 'var(--mz-danger-2)' }}>
                 ✗ APPLY FAILED
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1150,18 +1151,18 @@ export function ActionModal() {
                   onClick={() => { navigator.clipboard?.writeText(editResult.error || ''); setCopyFlash(true); setTimeout(() => setCopyFlash(false), 1200) }}
                   style={{
                     fontSize: 10, padding: '1px 8px', borderRadius: 3, cursor: 'pointer',
-                    color: copyFlash ? '#00ffaa' : '#ff9aa6', background: 'rgba(255,68,85,0.1)',
-                    border: '1px solid rgba(255,68,85,0.3)', fontFamily: 'inherit',
+                    color: copyFlash ? 'var(--mz-ok)' : 'var(--mz-danger-2)', background: 'rgba(var(--mz-danger-rgb),0.1)',
+                    border: '1px solid rgba(var(--mz-danger-rgb),0.3)', fontFamily: 'inherit',
                   }}
                 >{copyFlash ? '✓ Copied' : 'Copy'}</button>
                 <button onClick={() => setEditResult(null)} title="Dismiss"
-                  style={{ fontSize: 14, lineHeight: 1, color: '#ff6677', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+                  style={{ fontSize: 14, lineHeight: 1, color: 'var(--mz-danger-2)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
                 >×</button>
               </div>
             </div>
             <pre style={{
               margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-              fontFamily: "'Courier New', monospace", fontSize: 11, lineHeight: 1.5, color: '#ffb6bf',
+              fontFamily: "'Courier New', monospace", fontSize: 11, lineHeight: 1.5, color: 'var(--mz-danger-2)',
             }}>{editResult.error}</pre>
           </div>
         )}
@@ -1170,16 +1171,16 @@ export function ActionModal() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '5px 16px', flexShrink: 0,
-          borderTop: `1px solid ${lineColor}12`,
+          borderTop: `1px solid ${alpha(lineColor, 7)}`,
           background: 'rgba(0,0,0,0.25)',
         }}>
           {/* Left: stats + vim hints */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {type === 'logs' && !loading && (
-              <span style={{ fontSize: 10, color: '#527aa0' }}>
+              <span style={{ fontSize: 10, color: 'var(--mz-text-faint)' }}>
                 {logFilter ? `${filteredLogLines.length} matching` : `${logLines.length}`} lines
                 {isMulti && logPodFilter === 'all' && logPods.length > 0 && (
-                  <span style={{ color: '#4a6e8e' }}> · {logPods.length} pods</span>
+                  <span style={{ color: 'var(--mz-text-faint)' }}> · {logPods.length} pods</span>
                 )}
               </span>
             )}
@@ -1188,9 +1189,9 @@ export function ActionModal() {
               <button onClick={() => setShowLineNumbers(v => !v)} title="Toggle line numbers"
                 style={{
                   fontSize: 10, padding: '1px 7px', borderRadius: 3, cursor: 'pointer',
-                  color: showLineNumbers ? '#00d4ff' : '#5e88aa',
-                  background: showLineNumbers ? 'rgba(0,212,255,0.1)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${showLineNumbers ? 'rgba(0,212,255,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                  color: showLineNumbers ? 'var(--mz-accent)' : 'var(--mz-text-dim)',
+                  background: showLineNumbers ? 'rgba(var(--mz-accent-rgb),0.1)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${showLineNumbers ? 'rgba(var(--mz-accent-rgb),0.35)' : 'rgba(255,255,255,0.1)'}`,
                   fontFamily: 'inherit', transition: 'all 0.15s',
                 }}>#</button>
             )}
@@ -1198,20 +1199,20 @@ export function ActionModal() {
             {(isInspect ? (editMode ? !!editContent : !!displayContent) : ((type === 'logs' || isHelm) && content)) && !loading && (
               <button onClick={doCopy} style={{
                 fontSize: 10, padding: '1px 7px', borderRadius: 3, cursor: 'pointer',
-                color: copyFlash ? '#00ffaa' : '#4a8ab8',
-                background: copyFlash ? 'rgba(0,255,170,0.1)' : 'rgba(0,212,255,0.06)',
-                border: `1px solid ${copyFlash ? 'rgba(0,255,170,0.3)' : 'rgba(0,212,255,0.15)'}`,
+                color: copyFlash ? 'var(--mz-ok)' : 'var(--mz-accent-2)',
+                background: copyFlash ? 'rgba(var(--mz-ok-rgb),0.1)' : 'rgba(var(--mz-accent-rgb),0.06)',
+                border: `1px solid ${copyFlash ? 'rgba(var(--mz-ok-rgb),0.3)' : 'rgba(var(--mz-accent-rgb),0.15)'}`,
                 fontFamily: 'inherit', transition: 'all 0.2s',
               }}>{copyFlash ? '✓ Copied' : 'Copy'} <span style={{ opacity: 0.5, fontSize: 9 }}>c</span></button>
             )}
             {/* Edit apply result — success is terse here; errors render in the banner above. */}
             {editMode && editResult?.ok && (
-              <span style={{ fontSize: 10, color: '#00ffaa' }}>
+              <span style={{ fontSize: 10, color: 'var(--mz-ok)' }}>
                 ✓ {editResult.output || 'Applied'}
               </span>
             )}
             {editMode && editResult && !editResult.ok && (
-              <span style={{ fontSize: 10, color: '#ff6677' }}>✗ apply failed — see details ↑</span>
+              <span style={{ fontSize: 10, color: 'var(--mz-danger-2)' }}>✗ apply failed — see details ↑</span>
             )}
             {/* Key hints — edit-mode vim keys live in the ? overlay (CodeMirror owns them) */}
             <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 4 }}>
@@ -1233,12 +1234,12 @@ export function ActionModal() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {/* Helm values: user ↔ all (computed) toggle */}
             {type === 'helm-values' && !loading && (
-              <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(0,212,255,0.18)' }}>
+              <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(var(--mz-accent-rgb),0.18)' }}>
                 {[{ k: false, l: 'USER' }, { k: true, l: 'ALL' }].map(({ k, l }) => (
                   <button key={l} onClick={() => setHelmAllValues(k)} style={{
                     fontSize: 9, padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em',
-                    color: helmAllValues === k ? '#00d4ff' : '#5e88aa',
-                    background: helmAllValues === k ? 'rgba(0,212,255,0.15)' : 'transparent',
+                    color: helmAllValues === k ? 'var(--mz-accent)' : 'var(--mz-text-dim)',
+                    background: helmAllValues === k ? 'rgba(var(--mz-accent-rgb),0.15)' : 'transparent',
                     border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
                   }}>{l}</button>
                 ))}
@@ -1246,12 +1247,12 @@ export function ActionModal() {
             )}
             {/* DESCRIBE/YAML/JSON format toggle (inspect read mode only) */}
             {isInspect && !editMode && (
-              <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(0,212,255,0.18)' }}>
+              <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(var(--mz-accent-rgb),0.18)' }}>
                 {['describe', 'yaml', 'json'].map(fmt => (
                   <button key={fmt} onClick={() => setViewFormat(fmt)} style={{
                     fontSize: 9, padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em',
-                    color: viewFormat === fmt ? (fmt === 'describe' ? '#aa55ff' : '#00d4ff') : '#5e88aa',
-                    background: viewFormat === fmt ? (fmt === 'describe' ? 'rgba(170,85,255,0.15)' : 'rgba(0,212,255,0.15)') : 'transparent',
+                    color: viewFormat === fmt ? (fmt === 'describe' ? 'var(--mz-alt)' : 'var(--mz-accent)') : 'var(--mz-text-dim)',
+                    background: viewFormat === fmt ? (fmt === 'describe' ? 'rgba(var(--mz-alt-rgb),0.15)' : 'rgba(var(--mz-accent-rgb),0.15)') : 'transparent',
                     border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
                   }}>{fmt.toUpperCase()}</button>
                 ))}
@@ -1261,25 +1262,25 @@ export function ActionModal() {
             {isYamlOrEdit && editMode && (
               <>
                 {resource === 'pods' && (
-                  <span style={{ fontSize: 10, color: '#3a5060' }}>most pod fields are immutable</span>
+                  <span style={{ fontSize: 10, color: 'var(--mz-text-faint)' }}>most pod fields are immutable</span>
                 )}
                 <button
                   onClick={() => { setEditVimMode(v => !v); setVimMode('normal') }}
                   style={{
                     fontSize: 10, padding: '2px 8px', borderRadius: 3, cursor: 'pointer',
-                    color: editVimMode ? '#ffcc00' : '#5e88aa',
-                    background: editVimMode ? 'rgba(255,204,0,0.1)' : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${editVimMode ? 'rgba(255,204,0,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                    color: editVimMode ? 'var(--mz-warn)' : 'var(--mz-text-dim)',
+                    background: editVimMode ? 'rgba(var(--mz-warn-rgb),0.1)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${editVimMode ? 'rgba(var(--mz-warn-rgb),0.35)' : 'rgba(255,255,255,0.1)'}`,
                     fontFamily: 'inherit', letterSpacing: '0.08em', transition: 'all 0.15s',
                   }}
                 >VIM</button>
                 {editVimMode && (() => {
                   const mode = editInsert ? 'INSERT' : editVisual ? 'VISUAL' : 'NORMAL'
-                  const col  = mode === 'INSERT' ? '#00ffaa' : mode === 'VISUAL' ? '#ff8844' : '#ffcc00'
+                  const col  = mode === 'INSERT' ? 'var(--mz-ok)' : mode === 'VISUAL' ? 'var(--mz-orange)' : 'var(--mz-warn)'
                   return (
                     <span style={{
                       fontSize: 9, padding: '2px 6px', borderRadius: 3, letterSpacing: '0.1em',
-                      color: col, background: `${col}14`, border: `1px solid ${col}33`,
+                      color: col, background: `${alpha(col, 8)}`, border: `1px solid ${alpha(col, 20)}`,
                     }}>{mode}</span>
                   )
                 })()}
@@ -1287,9 +1288,9 @@ export function ActionModal() {
                   onClick={handleSave} disabled={editSaving}
                   style={{
                     fontSize: 11, padding: '3px 14px', borderRadius: 4, cursor: editSaving ? 'default' : 'pointer',
-                    color: editSaving ? '#2a6a5a' : '#00ffaa',
-                    background: editSaving ? 'rgba(0,255,170,0.05)' : 'rgba(0,255,170,0.1)',
-                    border: `1px solid ${editSaving ? 'rgba(0,255,170,0.15)' : 'rgba(0,255,170,0.4)'}`,
+                    color: editSaving ? 'var(--mz-text-muted)' : 'var(--mz-ok)',
+                    background: editSaving ? 'rgba(var(--mz-ok-rgb),0.05)' : 'rgba(var(--mz-ok-rgb),0.1)',
+                    border: `1px solid ${editSaving ? 'rgba(var(--mz-ok-rgb),0.15)' : 'rgba(var(--mz-ok-rgb),0.4)'}`,
                     fontFamily: 'inherit', transition: 'all 0.15s',
                   }}
                 >{editSaving ? 'Applying…' : '✓ Apply'}</button>

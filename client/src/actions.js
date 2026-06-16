@@ -24,40 +24,40 @@ const isStd = (r) => r !== 'helmreleases' && r !== 'containers' && !r.startsWith
 
 export const OBJECT_ACTIONS = [
   // ── Inspect ──────────────────────────────────────────────
-  { id: 'logs', label: 'Logs', hint: 'l', color: '#00ffaa', group: 'Inspect',
+  { id: 'logs', label: 'Logs', hint: 'l', color: 'var(--mz-ok)', group: 'Inspect',
     when: r => LOGS.has(r), key: e => e.key === 'l', run: s => s.openModal('logs') },
-  { id: 'describe', label: 'Describe', hint: 'd', color: '#aa55ff', group: 'Inspect',
+  { id: 'describe', label: 'Describe', hint: 'd', color: 'var(--mz-alt)', group: 'Inspect',
     when: r => isStd(r) || r === 'helmreleases',
     key: e => e.key === 'd' && !e.ctrlKey && !e.metaKey, run: s => s.openModal('describe') },
-  { id: 'yaml', label: 'YAML / JSON', hint: 'y', color: '#00d4ff', group: 'Inspect',
+  { id: 'yaml', label: 'YAML / JSON', hint: 'y', color: 'var(--mz-accent)', group: 'Inspect',
     when: r => isStd(r), key: e => e.key === 'y', run: s => s.openModal('yaml') },
-  { id: 'edit', label: 'Edit', hint: 'e', color: '#ffaa00', group: 'Inspect',
+  { id: 'edit', label: 'Edit', hint: 'e', color: 'var(--mz-orange)', group: 'Inspect',
     when: r => isStd(r), key: e => e.key === 'e', run: s => s.openModal('edit') },
-  { id: 'decode', label: 'Decode secret', hint: 'x', color: '#ff8844', group: 'Inspect',
+  { id: 'decode', label: 'Decode secret', hint: 'x', color: 'var(--mz-orange)', group: 'Inspect',
     when: r => r === 'secrets', key: e => e.key === 'x', run: s => s.openSecretDecoded() },
 
   // ── Helm ─────────────────────────────────────────────────
-  { id: 'helm-values', label: 'Values', hint: 'v', color: '#00ffaa', group: 'Helm',
+  { id: 'helm-values', label: 'Values', hint: 'v', color: 'var(--mz-ok)', group: 'Helm',
     when: r => r === 'helmreleases', key: e => e.key === 'v', run: s => s.openModal('helm-values') },
-  { id: 'helm-manifest', label: 'Manifest', hint: 'm', color: '#aa55ff', group: 'Helm',
+  { id: 'helm-manifest', label: 'Manifest', hint: 'm', color: 'var(--mz-alt)', group: 'Helm',
     when: r => r === 'helmreleases', key: e => e.key === 'm', run: s => s.openModal('helm-manifest') },
-  { id: 'helm-notes', label: 'Notes', hint: 'n', color: '#ffaa00', group: 'Helm',
+  { id: 'helm-notes', label: 'Notes', hint: 'n', color: 'var(--mz-orange)', group: 'Helm',
     when: r => r === 'helmreleases', key: e => e.key === 'n', run: s => s.openModal('helm-notes') },
-  { id: 'helm-history', label: 'History', hint: 'h', color: '#ff8844', group: 'Helm',
+  { id: 'helm-history', label: 'History', hint: 'h', color: 'var(--mz-orange)', group: 'Helm',
     when: r => r === 'helmreleases', key: e => e.key === 'h', run: s => s.openModal('helm-history') },
 
   // ── Actions / Navigate ───────────────────────────────────
-  { id: 'forward', label: 'Port-forward', hint: '⇧f', color: '#ffaa00', group: 'Actions',
+  { id: 'forward', label: 'Port-forward', hint: '⇧f', color: 'var(--mz-orange)', group: 'Actions',
     when: r => FORWARDABLE.has(r), key: e => e.key === 'F', run: s => s.openPortForward() },
-  { id: 'owner', label: 'Jump to owner', hint: '⇧j', color: '#5ac8fa', group: 'Navigate',
+  { id: 'owner', label: 'Jump to owner', hint: '⇧j', color: 'var(--mz-accent-2)', group: 'Navigate',
     when: r => OWNED.has(r), key: e => e.key === 'J', run: s => s.jumpToOwner() },
 
   // ── Danger ───────────────────────────────────────────────
   // ctrl+d / ctrl+k are handled directly in useKeys (multi-select aware); these entries
   // surface the same operations in the palette and carry the danger flag.
-  { id: 'delete', label: 'Delete…', hint: '⌃d', color: '#ff6677', group: 'Danger', danger: true,
+  { id: 'delete', label: 'Delete…', hint: '⌃d', color: 'var(--mz-danger-2)', group: 'Danger', danger: true,
     when: r => isStd(r), run: s => s.requestDelete() },
-  { id: 'kill', label: 'Kill (no confirm)', hint: '⌃k', color: '#ff4455', group: 'Danger', danger: true,
+  { id: 'kill', label: 'Kill (no confirm)', hint: '⌃k', color: 'var(--mz-danger)', group: 'Danger', danger: true,
     when: r => isStd(r), run: s => s.killSelected() },
 ]
 

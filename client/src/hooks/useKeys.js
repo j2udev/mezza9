@@ -35,6 +35,16 @@ export function useKeys() {
         return
       }
 
+      // Theme picker owns the keyboard while open (its own capture-phase listener).
+      if (s.themePickerOpen) return
+
+      // Shift+T: open the theme picker
+      if (e.key === 'T') {
+        e.preventDefault()
+        s.openThemePicker()
+        return
+      }
+
       // Actions palette owns the keyboard while open (its own capture-phase listener).
       if (s.actionMenuOpen) return
 

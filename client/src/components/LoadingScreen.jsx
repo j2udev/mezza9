@@ -31,13 +31,13 @@ export function LoadingScreen() {
   return (
     <div
       className="absolute inset-0 z-50 flex flex-col items-center justify-center"
-      style={{ background: '#0a1220', pointerEvents: 'none' }}
+      style={{ background: 'var(--mz-bg)', pointerEvents: 'none' }}
     >
       <div className="mb-8 text-center">
         <div className="mezz-wordmark mb-2" style={{ fontSize: 64, lineHeight: 1 }}>
           mezza9
         </div>
-        <div className="text-xs tracking-widest" style={{ color: '#5298ba' }}>
+        <div className="text-xs tracking-widest" style={{ color: 'var(--mz-accent-2)' }}>
           THE BEST SEAT IN THE THEATER
         </div>
       </div>
@@ -45,12 +45,12 @@ export function LoadingScreen() {
       <div className="relative w-16 h-16 mb-6">
         <div className="absolute inset-0 rounded-full border border-cyan-900/40" />
         <div className="absolute inset-0 rounded-full border-t-2 border-r-2 animate-spin"
-          style={{ borderColor: '#00d4ff transparent transparent transparent' }} />
+          style={{ borderColor: 'var(--mz-accent) transparent transparent transparent' }} />
         <div className="absolute inset-2 rounded-full border-b-2 animate-spin"
-          style={{ borderColor: 'transparent transparent #aa55ff transparent', animationDirection: 'reverse', animationDuration: '1.5s' }} />
+          style={{ borderColor: 'transparent transparent var(--mz-alt) transparent', animationDirection: 'reverse', animationDuration: '1.5s' }} />
       </div>
 
-      <div className="text-xs font-mono" style={{ color: '#5298ba', minWidth: 160, textAlign: 'center' }}>
+      <div className="text-xs font-mono" style={{ color: 'var(--mz-accent-2)', minWidth: 160, textAlign: 'center' }}>
         {!hasData ? `Connecting to cluster${dots}` : `Loading${dots}`}
       </div>
     </div>

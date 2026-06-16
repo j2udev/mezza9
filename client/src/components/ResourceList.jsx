@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { alpha } from '../theme'
 import { useStore, arrangeForDisplay, isFault } from '../store'
 import { getNsColor } from '../constants'
 import { ResourceRow } from './ResourceRow'
@@ -73,7 +74,7 @@ const COL_WIDTHS = {
 
 function SortArrow({ active, dir }) {
   if (!active) return null
-  return <span style={{ color: '#00d4ff', marginLeft: 3 }}>{dir === 'asc' ? '▲' : '▼'}</span>
+  return <span style={{ color: 'var(--mz-accent)', marginLeft: 3 }}>{dir === 'asc' ? '▲' : '▼'}</span>
 }
 
 // Width of the NAMESPACE column shown in flat (ungrouped) mode.
@@ -88,8 +89,8 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
     <div style={{
       display: 'flex', alignItems: 'center', height: 26,
       paddingLeft: 4, paddingRight: 16,
-      borderBottom: '1px solid rgba(0,212,255,0.12)',
-      background: 'rgba(2,8,24,0.92)',
+      borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.12)',
+      background: 'rgba(var(--mz-backdrop-rgb),0.92)',
       position: 'sticky', top: 0, zIndex: 2,
     }}>
       <span style={{ width: 14, flexShrink: 0 }} />
@@ -97,7 +98,7 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
       {showNsColumn && (
         <span style={{
           width: NS_COL_W, flexShrink: 0, fontSize: 10, letterSpacing: '0.08em',
-          color: '#72a4c6', paddingRight: 8,
+          color: 'var(--mz-accent-2)', paddingRight: 8,
         }}>
           NAMESPACE
         </span>
@@ -107,7 +108,7 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
         title="Sort by name (Shift+N)"
         style={{
           flex: 1, fontSize: 10, letterSpacing: '0.08em', cursor: 'pointer',
-          color: nameActive ? '#00d4ff' : '#72a4c6',
+          color: nameActive ? 'var(--mz-accent)' : 'var(--mz-accent-2)',
         }}
       >
         NAME<SortArrow active={nameActive} dir={sortDir} />
@@ -123,7 +124,7 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
             title={sk ? `Sort by ${sk}` : undefined}
             style={{
               width: widths[i], flexShrink: 0, fontSize: 10,
-              color: active ? '#00d4ff' : '#72a4c6', letterSpacing: '0.08em',
+              color: active ? 'var(--mz-accent)' : 'var(--mz-accent-2)', letterSpacing: '0.08em',
               textAlign: last ? 'right' : 'left',
               paddingLeft: last ? 0 : 8,
               cursor: sk ? 'pointer' : 'default',
@@ -144,17 +145,17 @@ function NamespaceHeader({ name, count, color, onClick, focused }) {
       style={{
         display: 'flex', alignItems: 'center', height: 32,
         paddingLeft: 8, paddingRight: 16, cursor: 'pointer',
-        background: focused ? `${color}12` : 'transparent',
+        background: focused ? `${alpha(color, 7)}` : 'transparent',
         borderLeft: `3px solid ${color}`, marginTop: 4,
         transition: 'background 0.15s',
       }}
-      onMouseEnter={e => { if (!focused) e.currentTarget.style.background = `${color}08` }}
+      onMouseEnter={e => { if (!focused) e.currentTarget.style.background = `${alpha(color, 3)}` }}
       onMouseLeave={e => { if (!focused) e.currentTarget.style.background = 'transparent' }}
     >
       <span style={{ fontSize: 10, fontWeight: 'bold', color, letterSpacing: '0.12em', flex: 1 }}>
         {name.toUpperCase()}
       </span>
-      <span style={{ fontSize: 10, color: `${color}88` }}>{count}</span>
+      <span style={{ fontSize: 10, color: `${alpha(color, 53)}` }}>{count}</span>
     </div>
   )
 }
@@ -227,7 +228,7 @@ export function ResourceList() {
       <ColumnHeader resource={activeResource} sortKey={sortKey} sortDir={sortDir} onSort={setSort} showNsColumn={showNsColumn} />
 
       {displayItems.length === 0 && (
-        <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: 12, color: '#5e88aa', fontFamily: 'inherit' }}>
+        <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: 12, color: 'var(--mz-text-dim)', fontFamily: 'inherit' }}>
           {faultsOnly ? `No ${displayName} with faults`
             : filter ? `No ${displayName} match "${filter}"`
             : `No ${displayName} found`}
@@ -235,7 +236,7 @@ export function ResourceList() {
       )}
 
       {groups.map(([ns, items]) => {
-        const nsColor = ns ? getNsColor(ns) : '#52789a'
+        const nsColor = ns ? getNsColor(ns) : 'var(--mz-text-faint)'
         return (
           <div key={ns || '__cluster__'}>
             {showNsHeaders && ns && (

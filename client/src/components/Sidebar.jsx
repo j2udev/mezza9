@@ -1,13 +1,14 @@
 import { useState } from 'react'
+import { alpha } from '../theme'
 import { useStore } from '../store'
 
 // One accent color per section — color now encodes the resource *category* instead of
 // being seemingly-random per item (#69). The highlight/active color a row gets is its
 // group's color, so clicking around the sidebar reads as a coherent scheme.
-const CUSTOM_COLOR = '#cc88ff'
+const CUSTOM_COLOR = 'var(--mz-alt)'
 const GROUPS = [
   {
-    label: 'WORKLOADS', color: '#00d4ff',
+    label: 'WORKLOADS', color: 'var(--mz-accent)',
     items: [
       { key: 'pods',         label: 'Pods'         },
       { key: 'deployments',  label: 'Deployments'  },
@@ -21,7 +22,7 @@ const GROUPS = [
     ],
   },
   {
-    label: 'NETWORK', color: '#ffaa00',
+    label: 'NETWORK', color: 'var(--mz-orange)',
     items: [
       { key: 'services',        label: 'Services'         },
       { key: 'ingresses',       label: 'Ingresses'        },
@@ -29,7 +30,7 @@ const GROUPS = [
     ],
   },
   {
-    label: 'CONFIG', color: '#aa55ff',
+    label: 'CONFIG', color: 'var(--mz-alt)',
     items: [
       { key: 'configmaps',     label: 'ConfigMaps'      },
       { key: 'secrets',        label: 'Secrets'         },
@@ -38,7 +39,7 @@ const GROUPS = [
     ],
   },
   {
-    label: 'STORAGE', color: '#88ffaa',
+    label: 'STORAGE', color: 'var(--mz-ok)',
     items: [
       { key: 'pvcs',          label: 'PVCs'               },
       { key: 'pvs',           label: 'Persistent Volumes' },
@@ -46,7 +47,7 @@ const GROUPS = [
     ],
   },
   {
-    label: 'RBAC', color: '#ff8844',
+    label: 'RBAC', color: 'var(--mz-orange)',
     items: [
       { key: 'roles',               label: 'Roles'                },
       { key: 'clusterroles',        label: 'Cluster Roles'        },
@@ -55,7 +56,7 @@ const GROUPS = [
     ],
   },
   {
-    label: 'CLUSTER', color: '#44aaff',
+    label: 'CLUSTER', color: 'var(--mz-info)',
     items: [
       { key: 'nodes',      label: 'Nodes'      },
       { key: 'namespaces', label: 'Namespaces' },
@@ -63,7 +64,7 @@ const GROUPS = [
     ],
   },
   {
-    label: 'HELM', color: '#00ffaa',
+    label: 'HELM', color: 'var(--mz-ok)',
     items: [
       { key: 'helmreleases', label: 'Releases' },
     ],
@@ -78,16 +79,16 @@ function SidebarItem({ isActive, color, label, count, onClick }) {
         display: 'flex', alignItems: 'center', height: 28,
         paddingLeft: 16, paddingRight: 8, cursor: 'pointer',
         borderLeft: `2px solid ${isActive ? color : 'transparent'}`,
-        background: isActive ? `${color}12` : 'transparent',
+        background: isActive ? `${alpha(color, 7)}` : 'transparent',
         transition: 'background 0.12s', userSelect: 'none',
       }}
       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
     >
-      <span style={{ flex: 1, fontSize: 11, color: isActive ? color : '#84b0ce', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <span style={{ flex: 1, fontSize: 11, color: isActive ? color : 'var(--mz-accent-2)', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {label}
       </span>
-      <span style={{ fontSize: 10, color: isActive ? `${color}99` : '#6298ba', fontFamily: 'inherit', minWidth: 20, textAlign: 'right', flexShrink: 0 }}>
+      <span style={{ fontSize: 10, color: isActive ? `${alpha(color, 60)}` : 'var(--mz-accent-2)', fontFamily: 'inherit', minWidth: 20, textAlign: 'right', flexShrink: 0 }}>
         {count ?? 0}
       </span>
     </div>
@@ -100,16 +101,16 @@ function SectionLabel({ children, collapsed, onToggle }) {
       onClick={onToggle}
       style={{
         padding: '6px 8px 4px', fontSize: 9, letterSpacing: '0.14em',
-        color: '#72b0d0', fontWeight: 'bold', userSelect: 'none',
+        color: 'var(--mz-accent-2)', fontWeight: 'bold', userSelect: 'none',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         cursor: 'pointer',
-        background: 'rgba(0,212,255,0.04)',
-        borderTop: '1px solid rgba(0,212,255,0.07)',
-        borderBottom: '1px solid rgba(0,212,255,0.05)',
+        background: 'rgba(var(--mz-accent-rgb),0.04)',
+        borderTop: '1px solid rgba(var(--mz-accent-rgb),0.07)',
+        borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.05)',
         marginTop: 2,
       }}
-      onMouseEnter={e => e.currentTarget.style.color = '#6aaac8'}
-      onMouseLeave={e => e.currentTarget.style.color = '#72b0d0'}
+      onMouseEnter={e => e.currentTarget.style.color = 'var(--mz-accent-2)'}
+      onMouseLeave={e => e.currentTarget.style.color = 'var(--mz-accent-2)'}
     >
       <span>{children}</span>
       <span style={{ fontSize: 8, opacity: 0.6 }}>{collapsed ? '›' : '˅'}</span>
@@ -163,8 +164,8 @@ export function Sidebar() {
     <div style={{
       position: 'absolute', top: 44, bottom: 36, left: 0,
       width: collapsed ? 36 : 200,
-      background: 'rgba(12,20,36,0.97)',
-      borderRight: '1px solid rgba(0, 212, 255, 0.07)',
+      background: 'rgba(var(--mz-surface-rgb),0.97)',
+      borderRight: '1px solid rgba(var(--mz-accent-rgb), 0.07)',
       display: 'flex', flexDirection: 'column',
       transition: 'width 0.18s ease', overflow: 'hidden',
       zIndex: 5, flexShrink: 0,
@@ -176,12 +177,12 @@ export function Sidebar() {
           height: 30, display: 'flex', alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-end',
           paddingRight: collapsed ? 0 : 10,
-          cursor: 'pointer', borderBottom: '1px solid rgba(0,212,255,0.06)',
-          color: '#5e88aa', fontSize: 14, lineHeight: 1,
+          cursor: 'pointer', borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.06)',
+          color: 'var(--mz-text-dim)', fontSize: 14, lineHeight: 1,
           flexShrink: 0, transition: 'color 0.12s', userSelect: 'none',
         }}
-        onMouseEnter={e => e.currentTarget.style.color = '#00d4ff'}
-        onMouseLeave={e => e.currentTarget.style.color = '#5e88aa'}
+        onMouseEnter={e => e.currentTarget.style.color = 'var(--mz-accent)'}
+        onMouseLeave={e => e.currentTarget.style.color = 'var(--mz-text-dim)'}
         title={collapsed ? 'Expand sidebar (ctrl+b)' : 'Collapse sidebar (ctrl+b)'}
       >
         {collapsed ? '›' : '‹'}
@@ -227,16 +228,16 @@ export function Sidebar() {
                       display: 'flex', alignItems: 'center', height: 28,
                       paddingLeft: 16, paddingRight: 8, cursor: 'pointer',
                       borderLeft: `2px solid ${isActive ? CUSTOM_COLOR : 'transparent'}`,
-                      background: isActive ? `${CUSTOM_COLOR}12` : 'transparent',
+                      background: isActive ? `${alpha(CUSTOM_COLOR, 7)}` : 'transparent',
                       transition: 'background 0.12s', userSelect: 'none',
                     }}
                     onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                     onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                   >
-                    <span style={{ flex: 1, fontSize: 11, color: isActive ? CUSTOM_COLOR : '#84b0ce', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ flex: 1, fontSize: 11, color: isActive ? CUSTOM_COLOR : 'var(--mz-accent-2)', fontFamily: 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {crd.kind}
                     </span>
-                    <span style={{ fontSize: 9, color: '#6298ba', fontFamily: 'monospace', flexShrink: 0 }}>
+                    <span style={{ fontSize: 9, color: 'var(--mz-accent-2)', fontFamily: 'monospace', flexShrink: 0 }}>
                       {crd.group.split('.')[0]}
                     </span>
                   </div>

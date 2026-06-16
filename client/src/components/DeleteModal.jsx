@@ -55,33 +55,33 @@ export function DeleteModal() {
       style={{
         position: 'absolute', inset: 0, zIndex: 60,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(1,5,14,0.88)', backdropFilter: 'blur(8px)',
+        background: 'rgba(var(--mz-backdrop-rgb),0.88)', backdropFilter: 'blur(8px)',
       }}
       onClick={cancelDelete}
     >
       <div
         style={{
           position: 'relative', padding: '28px 32px', borderRadius: 8,
-          background: 'rgba(12,22,38,0.98)',
-          border: '1px solid rgba(255,68,88,0.35)',
-          boxShadow: '0 0 40px rgba(255,68,88,0.12)',
+          background: 'rgba(var(--mz-surface-rgb),0.98)',
+          border: '1px solid rgba(var(--mz-danger-rgb),0.35)',
+          boxShadow: '0 0 40px rgba(var(--mz-danger-rgb),0.12)',
           minWidth: 360, maxWidth: 520,
         }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-          <span style={{ fontSize: 13, fontWeight: 'bold', letterSpacing: '0.12em', color: '#ff4458' }}>
+          <span style={{ fontSize: 13, fontWeight: 'bold', letterSpacing: '0.12em', color: 'var(--mz-danger)' }}>
             DELETE
           </span>
           {isMulti ? (
-            <span style={{ fontSize: 12, color: '#6298ba' }}>
+            <span style={{ fontSize: 12, color: 'var(--mz-accent-2)' }}>
               {items.length} {displayResource}
             </span>
           ) : (
-            <span style={{ fontSize: 12, color: '#6298ba' }}>
+            <span style={{ fontSize: 12, color: 'var(--mz-accent-2)' }}>
               {displayResource.slice(0, -1)} / {items[0].name}
-              {items[0].namespace && <span style={{ color: '#527aa0' }}> · {items[0].namespace}</span>}
+              {items[0].namespace && <span style={{ color: 'var(--mz-text-faint)' }}> · {items[0].namespace}</span>}
             </span>
           )}
         </div>
@@ -90,30 +90,30 @@ export function DeleteModal() {
           <>
             {isMulti ? (
               <div style={{ marginBottom: 16 }}>
-                <p style={{ fontSize: 12, color: '#c0d8f0', margin: '0 0 10px', lineHeight: 1.6 }}>
+                <p style={{ fontSize: 12, color: 'var(--mz-text)', margin: '0 0 10px', lineHeight: 1.6 }}>
                   Permanently delete {items.length} {displayResource}? This cannot be undone.
                 </p>
                 <div style={{
                   maxHeight: 180, overflowY: 'auto',
-                  background: 'rgba(255,68,88,0.04)', border: '1px solid rgba(255,68,88,0.15)',
+                  background: 'rgba(var(--mz-danger-rgb),0.04)', border: '1px solid rgba(var(--mz-danger-rgb),0.15)',
                   borderRadius: 4, padding: '6px 10px',
                 }}>
                   {items.map(item => (
-                    <div key={item.id} style={{ fontSize: 11, color: '#9ab8d0', lineHeight: 1.8, fontFamily: 'monospace' }}>
-                      <span style={{ color: '#ff6677' }}>✗</span>{' '}
+                    <div key={item.id} style={{ fontSize: 11, color: 'var(--mz-text-mid)', lineHeight: 1.8, fontFamily: 'monospace' }}>
+                      <span style={{ color: 'var(--mz-danger-2)' }}>✗</span>{' '}
                       {item.name}
-                      {item.namespace && <span style={{ color: '#52789a' }}> ({item.namespace})</span>}
+                      {item.namespace && <span style={{ color: 'var(--mz-text-faint)' }}> ({item.namespace})</span>}
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <p style={{ fontSize: 12, color: '#c0d8f0', margin: '0 0 20px', lineHeight: 1.6 }}>
+              <p style={{ fontSize: 12, color: 'var(--mz-text)', margin: '0 0 20px', lineHeight: 1.6 }}>
                 This will permanently delete the resource. This action cannot be undone.
               </p>
             )}
             {demoMode && (
-              <p style={{ fontSize: 11, color: '#ffcc44', margin: '0 0 16px' }}>
+              <p style={{ fontSize: 11, color: 'var(--mz-warn-2)', margin: '0 0 16px' }}>
                 Demo mode — deletion is simulated and has no effect.
               </p>
             )}
@@ -122,7 +122,7 @@ export function DeleteModal() {
                 onClick={cancelDelete}
                 style={{
                   fontSize: 11, padding: '5px 16px', borderRadius: 4, cursor: 'pointer',
-                  color: '#84b0ce', background: 'rgba(255,255,255,0.04)',
+                  color: 'var(--mz-accent-2)', background: 'rgba(255,255,255,0.04)',
                   border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'inherit',
                 }}
               >Cancel <span style={{ opacity: 0.5, fontSize: 9 }}>Esc</span></button>
@@ -130,8 +130,8 @@ export function DeleteModal() {
                 onClick={doDelete}
                 style={{
                   fontSize: 11, padding: '5px 20px', borderRadius: 4, cursor: 'pointer',
-                  color: '#ff4458', background: 'rgba(255,68,88,0.1)',
-                  border: '1px solid rgba(255,68,88,0.4)', fontFamily: 'inherit',
+                  color: 'var(--mz-danger)', background: 'rgba(var(--mz-danger-rgb),0.1)',
+                  border: '1px solid rgba(var(--mz-danger-rgb),0.4)', fontFamily: 'inherit',
                   letterSpacing: '0.04em',
                 }}
               >Delete{isMulti ? ` ${items.length}` : ''} <span style={{ opacity: 0.5, fontSize: 9 }}>Enter / y</span></button>
@@ -140,18 +140,18 @@ export function DeleteModal() {
         )}
 
         {status === 'deleting' && (
-          <p style={{ fontSize: 12, color: '#ffcc44', margin: 0 }}>Deleting…</p>
+          <p style={{ fontSize: 12, color: 'var(--mz-warn-2)', margin: 0 }}>Deleting…</p>
         )}
 
         {status !== null && status !== 'deleting' && (
           <>
-            <p style={{ fontSize: 12, color: status.ok ? '#00ffaa' : '#ff4458', margin: '0 0 16px' }}>
+            <p style={{ fontSize: 12, color: status.ok ? 'var(--mz-ok)' : 'var(--mz-danger)', margin: '0 0 16px' }}>
               {status.ok ? `✓ ${status.msg}` : `✗ ${status.msg}`}
             </p>
             {!status.ok && (
               <button onClick={cancelDelete} style={{
                 fontSize: 11, padding: '4px 14px', borderRadius: 4, cursor: 'pointer',
-                color: '#84b0ce', background: 'rgba(255,255,255,0.04)',
+                color: 'var(--mz-accent-2)', background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.1)', fontFamily: 'inherit',
               }}>Close</button>
             )}

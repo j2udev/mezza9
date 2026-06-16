@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme fallback defaults (Mezzanine). theme.js#applyTheme overrides these on :root
+   at runtime; defining them here too prevents a flash-of-unthemed-color before JS runs
+   and keeps the app usable if JS hasn't applied a stored theme yet. Keep in sync with
+   THEMES.mezzanine in theme.js. */
+:root {
+  --mz-bg: #0a1220;          --mz-bg-rgb: 10,18,32;
+  --mz-surface: #0c1626;     --mz-surface-rgb: 12,22,38;
+  --mz-backdrop: #01050e;    --mz-backdrop-rgb: 1,5,14;
+  --mz-border: #1b3048;      --mz-border-rgb: 27,48,72;
+  --mz-text-bright: #e8f4ff; --mz-text-bright-rgb: 232,244,255;
+  --mz-text: #c0d8f0;        --mz-text-rgb: 192,216,240;
+  --mz-text-mid: #9ab8d0;    --mz-text-mid-rgb: 154,184,208;
+  --mz-text-dim: #5e90b0;    --mz-text-dim-rgb: 94,144,176;
+  --mz-text-faint: #4e7090;  --mz-text-faint-rgb: 78,112,144;
+  --mz-text-muted: #8a9cae;  --mz-text-muted-rgb: 138,156,174;
+  --mz-accent: #00d4ff;          --mz-accent-rgb: 0,212,255;
+  --mz-accent-strong: #00aaff;   --mz-accent-strong-rgb: 0,170,255;
+  --mz-accent-2: #72b0d0;        --mz-accent-2-rgb: 114,176,208;
+  --mz-info: #44aaff;        --mz-info-rgb: 68,170,255;
+  --mz-alt: #aa55ff;         --mz-alt-rgb: 170,85,255;
+  --mz-ok: #00ffaa;          --mz-ok-rgb: 0,255,170;
+  --mz-warn: #ffcc00;        --mz-warn-rgb: 255,204,0;
+  --mz-warn-2: #ffcc44;      --mz-warn-2-rgb: 255,204,68;
+  --mz-orange: #ff8844;      --mz-orange-rgb: 255,136,68;
+  --mz-danger: #ff4455;      --mz-danger-rgb: 255,68,85;
+  --mz-danger-2: #ff6677;    --mz-danger-2-rgb: 255,102,119;
+  --mz-pink: #ff4488;        --mz-pink-rgb: 255,68,136;
+  --mz-neutral: #667788;     --mz-neutral-rgb: 102,119,136;
+}
+
 /* Mezzanine wordmark — self-hosted neon cursive (no runtime CDN dependency) */
 @font-face {
   font-family: 'Mezz Script';
@@ -17,13 +47,13 @@
   font-family: 'Mezz Script', cursive;
   font-weight: 400;
   letter-spacing: 0;
-  color: #eafcff;
+  color: var(--mz-text-bright);
   text-shadow:
-    0 0 4px  #d6f7ff,
-    0 0 11px #00d4ff,
-    0 0 22px #00d4ff,
-    0 0 38px #00aaff,
-    0 0 64px #0077ff;
+    0 0 4px  var(--mz-text-bright),
+    0 0 11px var(--mz-accent),
+    0 0 22px var(--mz-accent),
+    0 0 38px var(--mz-accent-strong),
+    0 0 64px var(--mz-accent-strong);
   animation: mezzFlicker 6s infinite;
 }
 @keyframes mezzFlicker {
@@ -37,7 +67,7 @@
 
 body {
   font-family: 'Courier New', 'Lucida Console', monospace;
-  background: #0a1220;
+  background: var(--mz-bg);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -46,7 +76,7 @@ canvas { display: block; }
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0, 212, 255, 0.2); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(var(--mz-accent-rgb), 0.2); border-radius: 2px; }
 
 @keyframes rowIn {
   from { opacity: 0; transform: translateX(-6px); }

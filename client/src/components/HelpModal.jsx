@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { alpha } from '../theme'
 import { useStore } from '../store'
 
 const SECTIONS = [
   {
     title: 'NAVIGATION',
-    color: '#00d4ff',
+    color: 'var(--mz-accent)',
     keys: [
       ['j / k', 'Select prev / next row'],
       ['gg / G', 'First / last row'],
@@ -16,7 +17,7 @@ const SECTIONS = [
   },
   {
     title: 'SORT & FILTER',
-    color: '#ffcc44',
+    color: 'var(--mz-warn-2)',
     keys: [
       ['Shift+N', 'Sort by name'],
       ['Shift+A', 'Sort by age'],
@@ -24,13 +25,14 @@ const SECTIONS = [
       ['(repeat)', 'Toggle sort direction'],
       ['ctrl+z', 'Toggle faults-only'],
       ['ctrl+g', 'Toggle namespace grouping'],
+      ['Shift+T', 'Theme switcher'],
       ['/', 'Filter by name / namespace'],
-      [':', 'Command (:pods, :ns …)'],
+      [':', 'Command (:pods, :ns, :theme …)'],
     ],
   },
   {
     title: 'ACTIONS',
-    color: '#00ffaa',
+    color: 'var(--mz-ok)',
     keys: [
       ['a', 'Actions palette'],
       ['Space', 'Mark / unmark row'],
@@ -47,7 +49,7 @@ const SECTIONS = [
   },
   {
     title: 'HELM (release selected)',
-    color: '#ff8844',
+    color: 'var(--mz-orange)',
     keys: [
       ['v', 'Values (Tab: user / all)'],
       ['m', 'Manifest'],
@@ -58,7 +60,7 @@ const SECTIONS = [
   },
   {
     title: 'MODAL (describe / yaml / logs / edit)',
-    color: '#aa55ff',
+    color: 'var(--mz-alt)',
     keys: [
       ['j / k', 'Scroll'],
       ['ctrl+d / u', 'Half-page scroll'],
@@ -79,7 +81,7 @@ function Kbd({ children }) {
   return (
     <span style={{
       display: 'inline-block', padding: '1px 6px', borderRadius: 3, minWidth: 18,
-      textAlign: 'center', fontSize: 10, color: '#9ab8d0',
+      textAlign: 'center', fontSize: 10, color: 'var(--mz-text-mid)',
       background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
       fontFamily: 'inherit',
     }}>{children}</span>
@@ -148,32 +150,32 @@ export function HelpModal() {
       style={{
         position: 'absolute', inset: 0, zIndex: 60,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(1,5,14,0.88)', backdropFilter: 'blur(8px)',
+        background: 'rgba(var(--mz-backdrop-rgb),0.88)', backdropFilter: 'blur(8px)',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
           width: 'min(820px, 94vw)', maxHeight: '86vh', overflowY: 'auto',
-          borderRadius: 8, background: 'rgba(12,22,38,0.98)',
-          border: '1px solid rgba(0,212,255,0.28)', boxShadow: '0 0 50px rgba(0,212,255,0.12)',
+          borderRadius: 8, background: 'rgba(var(--mz-surface-rgb),0.98)',
+          border: '1px solid rgba(var(--mz-accent-rgb),0.28)', boxShadow: '0 0 50px rgba(var(--mz-accent-rgb),0.12)',
         }}
       >
         {/* Header */}
         <div style={{
-          padding: '12px 18px', borderBottom: '1px solid rgba(0,212,255,0.18)',
-          position: 'sticky', top: 0, background: 'rgba(12,22,38,0.98)', zIndex: 1,
+          padding: '12px 18px', borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.18)',
+          position: 'sticky', top: 0, background: 'rgba(var(--mz-surface-rgb),0.98)', zIndex: 1,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: '0.16em', color: '#00d4ff' }}>
+            <span style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: '0.16em', color: 'var(--mz-accent)' }}>
               KEYBOARD SHORTCUTS
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 10, color: '#4a6e8e' }}>j/k · / filter · esc close</span>
+              <span style={{ fontSize: 10, color: 'var(--mz-text-faint)' }}>j/k · / filter · esc close</span>
               <button onClick={() => setHelpOpen(false)}
-                style={{ fontSize: 18, lineHeight: 1, color: '#5e88aa', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
-                onMouseEnter={e => e.target.style.color = '#c0d8f0'}
-                onMouseLeave={e => e.target.style.color = '#5e88aa'}
+                style={{ fontSize: 18, lineHeight: 1, color: 'var(--mz-text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
+                onMouseEnter={e => e.target.style.color = 'var(--mz-text)'}
+                onMouseLeave={e => e.target.style.color = 'var(--mz-text-dim)'}
               >×</button>
             </div>
           </div>
@@ -186,9 +188,9 @@ export function HelpModal() {
             placeholder={searchFocused ? 'filter shortcuts…' : 'press / to filter'}
             style={{
               width: '100%',
-              background: searchFocused ? 'rgba(0,212,255,0.1)' : 'rgba(0,212,255,0.04)',
-              border: `1px solid ${searchFocused ? 'rgba(0,212,255,0.4)' : 'rgba(0,212,255,0.12)'}`,
-              color: '#c0e8ff', fontSize: 12, padding: '4px 8px', borderRadius: 4,
+              background: searchFocused ? 'rgba(var(--mz-accent-rgb),0.1)' : 'rgba(var(--mz-accent-rgb),0.04)',
+              border: `1px solid ${searchFocused ? 'rgba(var(--mz-accent-rgb),0.4)' : 'rgba(var(--mz-accent-rgb),0.12)'}`,
+              color: 'var(--mz-text-bright)', fontSize: 12, padding: '4px 8px', borderRadius: 4,
               fontFamily: 'inherit', outline: 'none',
             }}
           />
@@ -200,7 +202,7 @@ export function HelpModal() {
           gap: '8px 28px', padding: '16px 22px',
         }}>
           {grouped.length === 0 && (
-            <div style={{ padding: '6px 0', fontSize: 11, color: '#5e88aa', fontStyle: 'italic' }}>
+            <div style={{ padding: '6px 0', fontSize: 11, color: 'var(--mz-text-dim)', fontStyle: 'italic' }}>
               No shortcuts match "{filter}".
             </div>
           )}
@@ -219,18 +221,18 @@ export function HelpModal() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10,
                       padding: '3px 6px', margin: '0 -6px', fontSize: 11, borderRadius: 4,
-                      background: selected ? `${color}1f` : 'transparent',
+                      background: selected ? `${alpha(color, 12)}` : 'transparent',
                       borderLeft: `2px solid ${selected ? color : 'transparent'}`,
                     }}>
                     <span style={{ flexShrink: 0, minWidth: 96 }}>
                       {k.split(' / ').map((part, i, arr) => (
                         <span key={part}>
                           <Kbd>{part}</Kbd>
-                          {i < arr.length - 1 && <span style={{ color: '#5e88aa', margin: '0 2px' }}>/</span>}
+                          {i < arr.length - 1 && <span style={{ color: 'var(--mz-text-dim)', margin: '0 2px' }}>/</span>}
                         </span>
                       ))}
                     </span>
-                    <span style={{ color: selected ? '#c0d8f0' : '#7a9ab8' }}>{label}</span>
+                    <span style={{ color: selected ? 'var(--mz-text)' : 'var(--mz-text-dim)' }}>{label}</span>
                   </div>
                 )
               })}

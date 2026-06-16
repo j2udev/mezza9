@@ -119,6 +119,7 @@ rm ~/.cache/ms-playwright-mcp/mcp-chrome-for-testing-b2bf846/SingletonCookie
 | `Shift+F` | Port-forward selected pod / service / deployment / statefulset |
 | `Shift+J` | Jump to owner (pod/replicaset → controller; job → cronjob) |
 | `a` | Actions palette — all actions applicable to the selection |
+| `Shift+T` | Theme switcher (also `:theme`) — j/k live-previews, Enter applies, Esc reverts |
 | `gg / G` | Go to first / last item in the resource list |
 | `ctrl+g` | Toggle namespace grouping (flat list ⇄ grouped headers; flat is default) |
 | `Space` | Toggle multi-select on current item (no cursor advance) |
@@ -201,6 +202,35 @@ Fields: `id`, `label`, `hint` (display key), `color`, `group` (palette section),
 from `run` so it can be reused. Helpers: `applicableActions(resource, {includeDanger})`,
 `actionForKey(event, resource)`. Destructive ctrl+d/ctrl+k key handling stays in useKeys
 (multi-select aware) but their palette entries live in the registry (`requestDelete`/`killSelected`).
+
+## Theming (`client/src/theme.js`) — semantic tokens, not inline hex (#14)
+
+`theme.js` is the **single source of truth for every color**. Each theme is a flat map of
+SEMANTIC tokens (`bg`, `text`/`text-dim`/`text-faint`/…, `accent`, `accent-2`, `ok`, `warn`,
+`danger`, `alt`, …) plus a `status` map (status → token) and a `ns` hue palette. **The app
+contains NO raw hex** outside `theme.js` — everything is `var(--mz-<token>)` (and
+`rgba(var(--mz-<token>-rgb), α)` for glows).
+
+How it works:
+- `applyTheme(id)` writes every token to `:root` as `--mz-<token>` **and** an RGB triplet
+  `--mz-<token>-rgb` (for `rgba()`), and updates a module-level `ACTIVE` palette object. It
+  runs on import (reading `localStorage['mezz-theme']`) so colors are set before first paint;
+  `index.css` also hard-codes the Mezzanine defaults on `:root` as an anti-FOUC fallback.
+- Because the bulk of colors are CSS vars, **a theme switch repaints with no React
+  re-render.** The only JS-side colors are `statusColor()`/`getNsColor()` (`constants.js`),
+  which read `ACTIVE` so they can return real hex for `${color}+alpha` math. App.jsx
+  subscribes to `themeId` so those JS-computed colors re-resolve on switch (children aren't
+  memoized, so the App re-render cascades).
+- **Never write `${someColor}18`-style alpha concat** — that breaks once a color is a CSS var.
+  Use `alpha(color, pct)` from `theme.js` (→ `color-mix(in srgb, color pct%, transparent)`),
+  which works for both hex and `var(--mz-*)`.
+- `store.themeId` / `setTheme(id)` / `themePickerOpen`. `ThemePicker.jsx` (Shift+T or `:theme`)
+  j/k live-previews (calls `setTheme` as you move), Enter commits, Esc reverts to the
+  theme that was active when it opened.
+
+**To add a theme:** add one entry to `THEMES` (tokens + status map + ns palette + swatch/blurb).
+**To add a token:** add it to every theme's `tokens`, the `:root` fallback in `index.css`, and
+use it as `var(--mz-<token>)`.
 
 ## API Endpoints (src/server.js)
 
@@ -314,10 +344,18 @@ the dim blue-gray TEXT tiers (#3a6070/#3a5a7a/#3a6a8a/#2a4a6a/etc.) were bumped 
 and the base bg lifted #020818→#0a1220 (was dark-on-dark). A full theme system / light mode is
 still #14.
 
+**Session 17:** #14 — theme system. Migrated the **entire app off inline hex** to semantic
+`var(--mz-*)` tokens defined in new `client/src/theme.js` (387 hex + 138 rgba triplets + 3
+8-digit literals → tokens; `${color}+alpha` concat → `alpha()`/`color-mix`). Two themes:
+"Mezzanine Neon" + "DevOps Building Blocks" (brand red/yellow/blue on navy). ThemePicker
+(Shift+T / `:theme`) with j/k live-preview + localStorage persistence. See the **Theming**
+section above. This is now the home for #71's deeper contrast/light-mode work too.
+
 **Remaining:**
-- #14 Custom theme / company branding (also the home for "test various contrasts" / light mode)
 - #15 In-cluster deploy
 - #16 Multi-cluster support
 - #17 Single binary packaging
 - #46 Faster auto-refresh · #53 port-forward tracking table
-- #62 syntax highlighting in read views (editor done) · #71 deeper contrast/theming (first pass done)
+- #62 syntax highlighting in read views (editor done)
+- #14/#71 follow-ups: a light theme + a custom/user-defined color editor are now one
+  `THEMES` entry away (deeper contrast tuning lives here)

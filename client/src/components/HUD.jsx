@@ -1,4 +1,5 @@
 import { useRef, useEffect, useMemo } from 'react'
+import { alpha } from '../theme'
 import { useStore, RESOURCE_ALIASES, DRILLABLE, FORWARDABLE, OWNED } from '../store'
 import { DetailPanel } from './DetailPanel'
 import { ActionModal } from './ActionModal'
@@ -25,7 +26,7 @@ function Kbd({ children }) {
     <span style={{
       display: 'inline-block', padding: '1px 5px', borderRadius: 3,
       background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-      color: '#7a9ab8', fontFamily: 'inherit', fontSize: 10,
+      color: 'var(--mz-text-dim)', fontFamily: 'inherit', fontSize: 10,
     }}>
       {children}
     </span>
@@ -36,7 +37,7 @@ function Hint({ keys, label }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       {keys.map(k => <Kbd key={k}>{k}</Kbd>)}
-      <span style={{ fontSize: 10, color: '#72a0c2' }}>{label}</span>
+      <span style={{ fontSize: 10, color: 'var(--mz-accent-2)' }}>{label}</span>
     </div>
   )
 }
@@ -155,8 +156,8 @@ export function HUD({ panelWidth = 288 }) {
         style={{
           position: 'absolute', top: 0, left: 0, right: 0, height: 44,
           display: 'flex', alignItems: 'center', padding: '0 16px', gap: 10,
-          background: 'linear-gradient(180deg, rgba(12,20,36,0.97) 0%, rgba(12,20,36,0) 100%)',
-          borderBottom: '1px solid rgba(0,212,255,0.06)',
+          background: 'linear-gradient(180deg, rgba(var(--mz-surface-rgb),0.97) 0%, rgba(var(--mz-surface-rgb),0) 100%)',
+          borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.06)',
         }}
       >
         {/* Wordmark */}
@@ -166,19 +167,19 @@ export function HUD({ panelWidth = 288 }) {
 
         {/* Demo-mode badge (no live cluster — the NotConnected screen covers "disconnected") */}
         {demoMode && (
-          <span style={{ fontSize: 10, letterSpacing: '0.08em', color: '#ffcc00aa', flexShrink: 0 }}>DEMO</span>
+          <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'rgba(var(--mz-warn-rgb), 0.67)', flexShrink: 0 }}>DEMO</span>
         )}
 
         {/* Namespace pill */}
         {activeNamespace !== 'all' && !nsPickerMode && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 4, flexShrink: 0,
-            background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.3)',
+            background: 'rgba(var(--mz-accent-rgb),0.1)', border: '1px solid rgba(var(--mz-accent-rgb),0.3)',
           }}>
-            <span style={{ fontSize: 10, color: '#72a4c6' }}>ns:</span>
-            <span style={{ fontSize: 11, color: '#00d4ff', fontFamily: 'inherit' }}>{activeNamespace}</span>
-            <button onClick={() => setActiveNamespace('all')} style={{ fontSize: 12, lineHeight: 1, color: '#5e88aa', marginLeft: 2, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              onMouseEnter={e => e.target.style.color = '#c0d8f0'} onMouseLeave={e => e.target.style.color = '#5e88aa'}>×</button>
+            <span style={{ fontSize: 10, color: 'var(--mz-accent-2)' }}>ns:</span>
+            <span style={{ fontSize: 11, color: 'var(--mz-accent)', fontFamily: 'inherit' }}>{activeNamespace}</span>
+            <button onClick={() => setActiveNamespace('all')} style={{ fontSize: 12, lineHeight: 1, color: 'var(--mz-text-dim)', marginLeft: 2, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              onMouseEnter={e => e.target.style.color = 'var(--mz-text)'} onMouseLeave={e => e.target.style.color = 'var(--mz-text-dim)'}>×</button>
           </div>
         )}
 
@@ -186,7 +187,7 @@ export function HUD({ panelWidth = 288 }) {
         {nsPickerMode && (
           <span style={{
             fontSize: 10, letterSpacing: '0.1em', padding: '2px 8px', borderRadius: 4, flexShrink: 0,
-            color: '#ffcc00', background: 'rgba(255,204,0,0.1)', border: '1px solid rgba(255,204,0,0.3)',
+            color: 'var(--mz-warn)', background: 'rgba(var(--mz-warn-rgb),0.1)', border: '1px solid rgba(var(--mz-warn-rgb),0.3)',
           }}>
             SELECT NAMESPACE
           </span>
@@ -196,38 +197,38 @@ export function HUD({ panelWidth = 288 }) {
         {showBreadcrumb && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0, minWidth: 0,
-            background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.1)',
+            background: 'rgba(var(--mz-accent-rgb),0.04)', border: '1px solid rgba(var(--mz-accent-rgb),0.1)',
             borderRadius: 4, padding: '2px 6px', fontSize: 10,
           }}>
             {navStack.length > 0 && (
               <span
                 onClick={navBack}
                 title="[ back"
-                style={{ color: '#72a4c6', cursor: 'pointer', whiteSpace: 'nowrap', paddingRight: 4 }}
-                onMouseEnter={e => e.currentTarget.style.color = '#7ab0cc'}
-                onMouseLeave={e => e.currentTarget.style.color = '#72a4c6'}
+                style={{ color: 'var(--mz-accent-2)', cursor: 'pointer', whiteSpace: 'nowrap', paddingRight: 4 }}
+                onMouseEnter={e => e.currentTarget.style.color = 'var(--mz-accent-2)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'var(--mz-accent-2)'}
               >
-                {navStack.length > 1 && <span style={{ color: '#52789a', marginRight: 4 }}>···</span>}
+                {navStack.length > 1 && <span style={{ color: 'var(--mz-text-faint)', marginRight: 4 }}>···</span>}
                 {navStack[navStack.length - 1].drilldownLabel
                   ? navStack[navStack.length - 1].drilldownLabel.split('›').pop().trim()
                   : navStack[navStack.length - 1].resource}
               </span>
             )}
             {navStack.length > 0 && (
-              <span style={{ color: '#52789a', padding: '0 4px' }}>›</span>
+              <span style={{ color: 'var(--mz-text-faint)', padding: '0 4px' }}>›</span>
             )}
-            <span style={{ color: '#c0d8f0', whiteSpace: 'nowrap', fontWeight: 500 }}>
+            <span style={{ color: 'var(--mz-text)', whiteSpace: 'nowrap', fontWeight: 500 }}>
               {drilldownLabel || activeResource}
             </span>
             {navFuture.length > 0 && (
               <>
-                <span style={{ color: '#52789a', padding: '0 4px' }}>›</span>
+                <span style={{ color: 'var(--mz-text-faint)', padding: '0 4px' }}>›</span>
                 <span
                   onClick={navForwardStep}
                   title="] forward"
-                  style={{ color: '#72a4c6', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  onMouseEnter={e => e.currentTarget.style.color = '#7ab0cc'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#72a4c6'}
+                  style={{ color: 'var(--mz-accent-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--mz-accent-2)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--mz-accent-2)'}
                 >
                   {navFuture[0].drilldownLabel
                     ? navFuture[0].drilldownLabel.split('›').pop().trim()
@@ -242,12 +243,12 @@ export function HUD({ panelWidth = 288 }) {
         {!showBreadcrumb && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexShrink: 0, minWidth: 0 }}>
             <span style={{
-              fontSize: 15, fontWeight: 600, color: '#c0e8ff', letterSpacing: '0.02em',
+              fontSize: 15, fontWeight: 600, color: 'var(--mz-text-bright)', letterSpacing: '0.02em',
               textTransform: 'capitalize', whiteSpace: 'nowrap',
             }}>
               {resourceLabel}
             </span>
-            <span style={{ fontSize: 11, color: '#72a4c6', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--mz-accent-2)', whiteSpace: 'nowrap' }}>
               {filter ? `${filteredCount}/${totalCount}` : totalCount}
             </span>
           </div>
@@ -259,15 +260,15 @@ export function HUD({ panelWidth = 288 }) {
             A mode toggle lets mouse users switch without shortcuts; resource mode adds a
             dropdown of all resources with autocomplete. */}
         {(() => {
-          const accent = resMode ? '#aa55ff' : '#00d4ff'
+          const accent = resMode ? 'var(--mz-alt)' : 'var(--mz-accent)'
           const hasVal = resMode ? !!command : !!filter
           return (
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '3px 6px 3px 4px', borderRadius: 4, transition: 'all 0.15s',
-            background: hasVal ? `${accent}1a` : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${hasVal ? `${accent}4d` : 'rgba(255,255,255,0.1)'}`,
+            background: hasVal ? `${alpha(accent, 10)}` : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${hasVal ? `${alpha(accent, 30)}` : 'rgba(255,255,255,0.1)'}`,
           }}>
             {/* str/res mode toggle */}
             <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', flexShrink: 0 }}>
@@ -277,8 +278,8 @@ export function HUD({ panelWidth = 288 }) {
                   style={{
                     fontSize: 11, fontWeight: 'bold', lineHeight: 1, padding: '2px 6px', cursor: 'pointer',
                     fontFamily: 'inherit', border: 'none', transition: 'all 0.12s',
-                    color: filterMode === m ? (m === 'res' ? '#aa55ff' : '#00d4ff') : '#456',
-                    background: filterMode === m ? (m === 'res' ? 'rgba(170,85,255,0.18)' : 'rgba(0,212,255,0.18)') : 'transparent',
+                    color: filterMode === m ? (m === 'res' ? 'var(--mz-alt)' : 'var(--mz-accent)') : '#456',
+                    background: filterMode === m ? (m === 'res' ? 'rgba(var(--mz-alt-rgb),0.18)' : 'rgba(var(--mz-accent-rgb),0.18)') : 'transparent',
                   }}>{l}</button>
               ))}
             </div>
@@ -312,16 +313,16 @@ export function HUD({ panelWidth = 288 }) {
               placeholder={resMode ? 'resource…' : 'filter…'}
               style={{
                 width: 150, background: 'transparent', border: 'none', outline: 'none',
-                color: '#c0e8ff', fontSize: 11, fontFamily: 'inherit',
+                color: 'var(--mz-text-bright)', fontSize: 11, fontFamily: 'inherit',
               }}
             />
             {!resMode && filter && (
-              <span style={{ fontSize: 10, color: '#6aa6c8', flexShrink: 0 }}>{filteredCount}/{totalCount}</span>
+              <span style={{ fontSize: 10, color: 'var(--mz-accent-2)', flexShrink: 0 }}>{filteredCount}/{totalCount}</span>
             )}
             {hasVal && (
               <button onClick={() => { if (resMode) { setCommand(''); filterRef.current?.focus() } else clearFilter() }} title="Clear"
-                style={{ fontSize: 12, lineHeight: 1, color: '#92b2d0', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
-                onMouseEnter={e => e.target.style.color = '#c0d8f0'} onMouseLeave={e => e.target.style.color = '#92b2d0'}>×</button>
+                style={{ fontSize: 12, lineHeight: 1, color: 'var(--mz-text-mid)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+                onMouseEnter={e => e.target.style.color = 'var(--mz-text)'} onMouseLeave={e => e.target.style.color = 'var(--mz-text-mid)'}>×</button>
             )}
           </div>
 
@@ -329,11 +330,11 @@ export function HUD({ panelWidth = 288 }) {
           {resMode && filterActive && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 4px)', right: 0, width: 220, maxHeight: 280, overflowY: 'auto',
-              background: 'rgba(6,14,28,0.99)', border: '1px solid rgba(170,85,255,0.3)', borderRadius: 5,
+              background: 'rgba(var(--mz-backdrop-rgb),0.99)', border: '1px solid rgba(var(--mz-alt-rgb),0.3)', borderRadius: 5,
               boxShadow: '0 8px 30px rgba(0,0,0,0.5)', zIndex: 60, padding: '4px 0',
             }}>
               {resCandidates.length === 0 && (
-                <div style={{ padding: '6px 12px', fontSize: 11, color: '#5a7a9a' }}>no match</div>
+                <div style={{ padding: '6px 12px', fontSize: 11, color: 'var(--mz-text-dim)' }}>no match</div>
               )}
               {resCandidates.map(name => {
                 const isCurrent = name === command.trim().toLowerCase()
@@ -343,14 +344,14 @@ export function HUD({ panelWidth = 288 }) {
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '4px 12px', cursor: 'pointer', fontSize: 11,
-                      color: isCurrent ? '#d8b8ff' : '#9ab8d0',
-                      background: isCurrent ? 'rgba(170,85,255,0.15)' : 'transparent',
+                      color: isCurrent ? 'var(--mz-alt)' : 'var(--mz-text-mid)',
+                      background: isCurrent ? 'rgba(var(--mz-alt-rgb),0.15)' : 'transparent',
                     }}
                     onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
                     onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
                   >
                     <span style={{ textTransform: 'capitalize' }}>{name === 'ns' ? 'namespace (picker)' : name}</span>
-                    {activeResource === name && <span style={{ fontSize: 9, color: '#aa55ff' }}>● current</span>}
+                    {activeResource === name && <span style={{ fontSize: 9, color: 'var(--mz-alt)' }}>● current</span>}
                   </div>
                 )
               })}
@@ -369,12 +370,12 @@ export function HUD({ panelWidth = 288 }) {
               display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, cursor: 'pointer',
               padding: '2px 8px', borderRadius: 4, fontSize: 10, letterSpacing: '0.04em',
               fontFamily: 'inherit',
-              color: groupByNamespace ? '#00d4ff' : '#72a4c6',
-              background: groupByNamespace ? 'rgba(0,212,255,0.1)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${groupByNamespace ? 'rgba(0,212,255,0.3)' : 'rgba(255,255,255,0.1)'}`,
+              color: groupByNamespace ? 'var(--mz-accent)' : 'var(--mz-accent-2)',
+              background: groupByNamespace ? 'rgba(var(--mz-accent-rgb),0.1)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${groupByNamespace ? 'rgba(var(--mz-accent-rgb),0.3)' : 'rgba(255,255,255,0.1)'}`,
             }}
-            onMouseEnter={e => { if (!groupByNamespace) e.currentTarget.style.color = '#7ab0cc' }}
-            onMouseLeave={e => { if (!groupByNamespace) e.currentTarget.style.color = '#72a4c6' }}
+            onMouseEnter={e => { if (!groupByNamespace) e.currentTarget.style.color = 'var(--mz-accent-2)' }}
+            onMouseLeave={e => { if (!groupByNamespace) e.currentTarget.style.color = 'var(--mz-accent-2)' }}
           >
             <span style={{ fontSize: 12, lineHeight: 1 }}>{groupByNamespace ? '⊟' : '≡'}</span>
             {groupByNamespace ? 'grouped' : 'flat'}
@@ -402,8 +403,8 @@ export function HUD({ panelWidth = 288 }) {
         style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, height: 36,
           display: 'flex', alignItems: 'center', padding: '0 16px', gap: 16,
-          background: 'linear-gradient(0deg, rgba(12,20,36,0.97) 0%, rgba(12,20,36,0) 100%)',
-          borderTop: '1px solid rgba(0,212,255,0.06)',
+          background: 'linear-gradient(0deg, rgba(var(--mz-surface-rgb),0.97) 0%, rgba(var(--mz-surface-rgb),0) 100%)',
+          borderTop: '1px solid rgba(var(--mz-accent-rgb),0.06)',
         }}
       >
         {(
@@ -416,7 +417,7 @@ export function HUD({ panelWidth = 288 }) {
             {navStack.length > 0 && <Hint keys={['[']} label="back" />}
             {navFuture.length > 0 && <Hint keys={[']']} label="fwd" />}
             {selectedId && activeResource === 'helmreleases' && <>
-              <span style={{ color: '#52789a', fontSize: 10 }}>·</span>
+              <span style={{ color: 'var(--mz-text-faint)', fontSize: 10 }}>·</span>
               <Hint keys={['v']} label="values" />
               <Hint keys={['m']} label="manifest" />
               <Hint keys={['n']} label="notes" />
@@ -425,7 +426,7 @@ export function HUD({ panelWidth = 288 }) {
               <Hint keys={['a']} label="actions" />
             </>}
             {selectedId && activeResource !== 'helmreleases' && <>
-              <span style={{ color: '#52789a', fontSize: 10 }}>·</span>
+              <span style={{ color: 'var(--mz-text-faint)', fontSize: 10 }}>·</span>
               <Hint keys={['spc']} label="mark" />
               <Hint keys={['l']} label="logs" />
               <Hint keys={['d']} label="describe" />
@@ -439,7 +440,7 @@ export function HUD({ panelWidth = 288 }) {
               <Hint keys={['ctrl+k']} label="kill" />
             </>}
             {selectedIds?.size > 0 && (
-              <span style={{ fontSize: 10, color: '#ffcc44', background: 'rgba(255,204,68,0.1)', border: '1px solid rgba(255,204,68,0.3)', borderRadius: 3, padding: '1px 6px' }}>
+              <span style={{ fontSize: 10, color: 'var(--mz-warn-2)', background: 'rgba(var(--mz-warn-2-rgb),0.1)', border: '1px solid rgba(var(--mz-warn-2-rgb),0.3)', borderRadius: 3, padding: '1px 6px' }}>
                 {selectedIds.size} marked
               </span>
             )}
@@ -447,7 +448,7 @@ export function HUD({ panelWidth = 288 }) {
               <span
                 onClick={clearSort}
                 title="Clear sort"
-                style={{ cursor: 'pointer', fontSize: 10, color: '#00d4ff', background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.3)', borderRadius: 3, padding: '1px 6px' }}
+                style={{ cursor: 'pointer', fontSize: 10, color: 'var(--mz-accent)', background: 'rgba(var(--mz-accent-rgb),0.1)', border: '1px solid rgba(var(--mz-accent-rgb),0.3)', borderRadius: 3, padding: '1px 6px' }}
               >
                 sort: {sortKey} {sortDir === 'asc' ? '▲' : '▼'} <span style={{ opacity: 0.5 }}>×</span>
               </span>
@@ -456,7 +457,7 @@ export function HUD({ panelWidth = 288 }) {
               <span
                 onClick={toggleFaults}
                 title="Show all (ctrl+z)"
-                style={{ cursor: 'pointer', fontSize: 10, color: '#ff4455', background: 'rgba(255,68,85,0.12)', border: '1px solid rgba(255,68,85,0.4)', borderRadius: 3, padding: '1px 6px' }}
+                style={{ cursor: 'pointer', fontSize: 10, color: 'var(--mz-danger)', background: 'rgba(var(--mz-danger-rgb),0.12)', border: '1px solid rgba(var(--mz-danger-rgb),0.4)', borderRadius: 3, padding: '1px 6px' }}
               >
                 faults only <span style={{ opacity: 0.6 }}>×</span>
               </span>
@@ -465,8 +466,8 @@ export function HUD({ panelWidth = 288 }) {
           </div>
         )}
 
-        <div style={{ fontSize: 10, flexShrink: 0, color: '#5e88aa', fontFamily: 'inherit' }}>
-          {filteredCount}&nbsp;<span style={{ color: '#4e7090' }}>/</span>&nbsp;{totalCount}&nbsp;{resourceLabel}
+        <div style={{ fontSize: 10, flexShrink: 0, color: 'var(--mz-text-dim)', fontFamily: 'inherit' }}>
+          {filteredCount}&nbsp;<span style={{ color: 'var(--mz-text-faint)' }}>/</span>&nbsp;{totalCount}&nbsp;{resourceLabel}
         </div>
       </div>
     </>

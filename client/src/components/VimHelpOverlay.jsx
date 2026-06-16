@@ -6,7 +6,7 @@ import { useEffect } from 'react'
 const SECTIONS = [
   {
     title: 'MODES',
-    color: '#ffcc00',
+    color: 'var(--mz-warn)',
     keys: [
       ['i / a', 'Insert before / after cursor'],
       ['I / A', 'Insert at line start / end'],
@@ -18,7 +18,7 @@ const SECTIONS = [
   },
   {
     title: 'MOTIONS',
-    color: '#00d4ff',
+    color: 'var(--mz-accent)',
     keys: [
       ['h j k l', 'Left / down / up / right'],
       ['w / b / e', 'Word fwd / back / end'],
@@ -34,7 +34,7 @@ const SECTIONS = [
   },
   {
     title: 'EDIT / OPERATORS',
-    color: '#00ffaa',
+    color: 'var(--mz-ok)',
     keys: [
       ['x / X', 'Delete char after / before'],
       ['r / R', 'Replace char / mode'],
@@ -52,7 +52,7 @@ const SECTIONS = [
   },
   {
     title: 'SEARCH / EX / OTHER',
-    color: '#aa55ff',
+    color: 'var(--mz-alt)',
     keys: [
       ['/ ? ', 'Search fwd / (? = this help)'],
       ['n / N', 'Next / prev match'],
@@ -70,7 +70,7 @@ function Kbd({ children }) {
   return (
     <span style={{
       display: 'inline-block', padding: '1px 6px', borderRadius: 3, minWidth: 18,
-      textAlign: 'center', fontSize: 10, color: '#9ab8d0',
+      textAlign: 'center', fontSize: 10, color: 'var(--mz-text-mid)',
       background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
       fontFamily: 'inherit',
     }}>{children}</span>
@@ -92,26 +92,26 @@ export function VimHelpOverlay({ onClose }) {
       style={{
         position: 'absolute', inset: 0, zIndex: 70,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(1,5,14,0.9)', backdropFilter: 'blur(8px)',
+        background: 'rgba(var(--mz-backdrop-rgb),0.9)', backdropFilter: 'blur(8px)',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
           width: 'min(900px, 94vw)', maxHeight: '86vh', overflowY: 'auto',
-          borderRadius: 8, background: 'rgba(12,22,38,0.98)',
-          border: '1px solid rgba(255,204,0,0.3)', boxShadow: '0 0 50px rgba(255,204,0,0.12)',
+          borderRadius: 8, background: 'rgba(var(--mz-surface-rgb),0.98)',
+          border: '1px solid rgba(var(--mz-warn-rgb),0.3)', boxShadow: '0 0 50px rgba(var(--mz-warn-rgb),0.12)',
         }}
       >
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 18px', borderBottom: '1px solid rgba(255,204,0,0.18)',
-          position: 'sticky', top: 0, background: 'rgba(12,22,38,0.98)',
+          padding: '12px 18px', borderBottom: '1px solid rgba(var(--mz-warn-rgb),0.18)',
+          position: 'sticky', top: 0, background: 'rgba(var(--mz-surface-rgb),0.98)',
         }}>
-          <span style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: '0.16em', color: '#ffcc00' }}>
+          <span style={{ fontSize: 12, fontWeight: 'bold', letterSpacing: '0.16em', color: 'var(--mz-warn)' }}>
             VIM KEYS — EDIT MODE
           </span>
-          <span style={{ fontSize: 10, color: '#4a6e8e' }}>? · ESC · close</span>
+          <span style={{ fontSize: 10, color: 'var(--mz-text-faint)' }}>? · ESC · close</span>
         </div>
 
         <div style={{
@@ -134,13 +134,13 @@ export function VimHelpOverlay({ onClose }) {
                       <span key={part + i} style={{ marginRight: 3 }}><Kbd>{part}</Kbd></span>
                     ))}
                   </span>
-                  <span style={{ color: '#7a9ab8' }}>{label}</span>
+                  <span style={{ color: 'var(--mz-text-dim)' }}>{label}</span>
                 </div>
               ))}
             </div>
           ))}
         </div>
-        <div style={{ padding: '0 22px 16px', fontSize: 10, color: '#5e88aa' }}>
+        <div style={{ padding: '0 22px 16px', fontSize: 10, color: 'var(--mz-text-dim)' }}>
           Powered by CodeMirror vim — most standard vim commands work, including counts (e.g. 3dd, 5j).
         </div>
       </div>

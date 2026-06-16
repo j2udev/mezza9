@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, Fragment } from 'react'
+import { alpha } from '../theme'
 import { useStore } from '../store'
 import { applicableActions } from '../actions'
 
@@ -71,7 +72,7 @@ export function ActionMenu() {
       style={{
         position: 'absolute', inset: 0, zIndex: 58,
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: '12vh',
-        background: 'rgba(1,5,14,0.8)', backdropFilter: 'blur(6px)',
+        background: 'rgba(var(--mz-backdrop-rgb),0.8)', backdropFilter: 'blur(6px)',
       }}
     >
       <div
@@ -79,17 +80,17 @@ export function ActionMenu() {
         style={{
           width: 'min(440px, 92vw)', maxHeight: '70vh', overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
-          borderRadius: 8, background: 'rgba(2,10,22,0.99)',
-          border: '1px solid rgba(0,212,255,0.28)', boxShadow: '0 0 50px rgba(0,212,255,0.14)',
+          borderRadius: 8, background: 'rgba(var(--mz-backdrop-rgb),0.99)',
+          border: '1px solid rgba(var(--mz-accent-rgb),0.28)', boxShadow: '0 0 50px rgba(var(--mz-accent-rgb),0.14)',
         }}
       >
         {/* Header + filter */}
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(0,212,255,0.14)', flexShrink: 0 }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(var(--mz-accent-rgb),0.14)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: '0.14em', color: '#00d4ff' }}>ACTIONS</span>
-            <span style={{ fontSize: 10, color: '#6298ba' }}>
+            <span style={{ fontSize: 11, fontWeight: 'bold', letterSpacing: '0.14em', color: 'var(--mz-accent)' }}>ACTIONS</span>
+            <span style={{ fontSize: 10, color: 'var(--mz-accent-2)' }}>
               {label.slice(0, -1)} / {item.name}
-              {markedCount > 0 && <span style={{ color: '#ffcc44', marginLeft: 6 }}>· {markedCount} marked</span>}
+              {markedCount > 0 && <span style={{ color: 'var(--mz-warn-2)', marginLeft: 6 }}>· {markedCount} marked</span>}
             </span>
           </div>
           <input
@@ -101,9 +102,9 @@ export function ActionMenu() {
             placeholder={searchFocused ? 'filter actions…' : 'press / to filter'}
             style={{
               width: '100%',
-              background: searchFocused ? 'rgba(0,212,255,0.1)' : 'rgba(0,212,255,0.04)',
-              border: `1px solid ${searchFocused ? 'rgba(0,212,255,0.4)' : 'rgba(0,212,255,0.12)'}`,
-              color: '#c0e8ff', fontSize: 12, padding: '4px 8px', borderRadius: 4,
+              background: searchFocused ? 'rgba(var(--mz-accent-rgb),0.1)' : 'rgba(var(--mz-accent-rgb),0.04)',
+              border: `1px solid ${searchFocused ? 'rgba(var(--mz-accent-rgb),0.4)' : 'rgba(var(--mz-accent-rgb),0.12)'}`,
+              color: 'var(--mz-text-bright)', fontSize: 12, padding: '4px 8px', borderRadius: 4,
               fontFamily: 'inherit', outline: 'none',
             }}
           />
@@ -112,7 +113,7 @@ export function ActionMenu() {
         {/* Action list */}
         <div style={{ overflowY: 'auto', padding: '6px 0' }}>
           {actions.length === 0 && (
-            <div style={{ padding: '10px 16px', fontSize: 11, color: '#5e88aa', fontStyle: 'italic' }}>No matching actions.</div>
+            <div style={{ padding: '10px 16px', fontSize: 11, color: 'var(--mz-text-dim)', fontStyle: 'italic' }}>No matching actions.</div>
           )}
           {actions.map((a, i) => {
             const showGroup = i === 0 || actions[i - 1].group !== a.group
@@ -120,7 +121,7 @@ export function ActionMenu() {
             return (
               <Fragment key={a.id}>
                 {showGroup && (
-                  <div style={{ padding: '6px 16px 2px', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#6298ba' }}>
+                  <div style={{ padding: '6px 16px 2px', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mz-accent-2)' }}>
                     {a.group}
                   </div>
                 )}
@@ -131,13 +132,13 @@ export function ActionMenu() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '6px 16px', cursor: 'pointer',
-                    background: selected ? `${a.color}1a` : 'transparent',
+                    background: selected ? `${alpha(a.color, 10)}` : 'transparent',
                     borderLeft: `2px solid ${selected ? a.color : 'transparent'}`,
                   }}
                 >
-                  <span style={{ fontSize: 12, color: a.danger ? a.color : (selected ? a.color : '#c0d8f0') }}>{a.label}</span>
+                  <span style={{ fontSize: 12, color: a.danger ? a.color : (selected ? a.color : 'var(--mz-text)') }}>{a.label}</span>
                   <span style={{
-                    fontSize: 10, color: '#86a8c6', fontFamily: 'inherit',
+                    fontSize: 10, color: 'var(--mz-text-mid)', fontFamily: 'inherit',
                     background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: 3, padding: '0 5px',
                   }}>{a.hint}</span>
@@ -148,8 +149,8 @@ export function ActionMenu() {
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '6px 14px', borderTop: '1px solid rgba(0,212,255,0.12)', flexShrink: 0,
-          display: 'flex', gap: 12, fontSize: 10, color: '#5e88aa', background: 'rgba(0,0,0,0.25)' }}>
+        <div style={{ padding: '6px 14px', borderTop: '1px solid rgba(var(--mz-accent-rgb),0.12)', flexShrink: 0,
+          display: 'flex', gap: 12, fontSize: 10, color: 'var(--mz-text-dim)', background: 'rgba(0,0,0,0.25)' }}>
           <span>j/k move</span><span>↵ run</span><span>shortcut runs</span><span>/ filter</span><span>esc close</span>
         </div>
       </div>
