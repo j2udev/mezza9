@@ -134,7 +134,10 @@ export function HUD({ panelWidth = 288 }) {
 
   const filteredCount = useMemo(() => {
     let items = allItems
-    if (activeNamespace !== 'all') items = items.filter(i => i.namespace === activeNamespace)
+    // Cluster-scoped resources have no namespace, so the active-namespace scope is skipped
+    // for them (matches ResourceList) - otherwise the count would read 0. #91
+    const hasNs = allItems.some(i => i.namespace)
+    if (activeNamespace !== 'all' && hasNs) items = items.filter(i => i.namespace === activeNamespace)
     if (!filter) return items.length
     const q = filter.toLowerCase()
     return items.filter(i =>
@@ -264,7 +267,10 @@ export function HUD({ panelWidth = 288 }) {
           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSidebar() } }}
           title={sidebarCollapsed ? 'Expand sidebar (ctrl+b)' : 'Collapse sidebar (ctrl+b)'}
           className="mezz-wordmark"
-          style={{ fontSize: 28, lineHeight: 1, flexShrink: 0, paddingRight: 4, cursor: 'pointer', userSelect: 'none' }}
+          // The script font's metrics are top-heavy (large ascent, near-zero descent on
+          // "mezzanine"), so geometric line-box centering leaves the visible body sitting
+          // a couple px low. translateY(-2px) optically centers the glyph mass in the 44px bar.
+          style={{ fontSize: 28, lineHeight: 1, flexShrink: 0, paddingRight: 4, cursor: 'pointer', userSelect: 'none', transform: 'translateY(-2px)' }}
         >
           {sidebarCollapsed ? 'mezza9' : 'mezzanine'}
         </span>
@@ -272,16 +278,6 @@ export function HUD({ panelWidth = 288 }) {
         {/* Demo-mode badge (no live cluster - the NotConnected screen covers "disconnected") */}
         {demoMode && (
           <span style={{ fontSize: 10, letterSpacing: '0.08em', color: 'rgba(var(--mz-warn-rgb), 0.67)', flexShrink: 0 }}>DEMO</span>
-        )}
-
-        {/* Namespace picker badge */}
-        {nsPickerMode && (
-          <span style={{
-            fontSize: 10, letterSpacing: '0.1em', padding: '2px 8px', borderRadius: 4, flexShrink: 0,
-            color: 'var(--mz-warn)', background: 'rgba(var(--mz-warn-rgb),0.1)', border: '1px solid rgba(var(--mz-warn-rgb),0.3)',
-          }}>
-            SELECT NAMESPACE
-          </span>
         )}
 
         {/* Center slot - the current (filtered) resource the list is showing, absolutely
@@ -294,6 +290,23 @@ export function HUD({ panelWidth = 288 }) {
             two-line (filtered) states both sit balanced in the 44px bar. */}
         {(() => {
           const nsFiltered = !nsPickerMode && activeNamespace !== 'all'
+          // While the namespace picker is open, the center slot is the front-and-center
+          // "SELECT NAMESPACE" prompt (replaces the old out-of-place top-left badge). #91
+          if (nsPickerMode) return (
+            <div style={{
+              position: 'absolute', left: '50%', top: 0, height: 44, transform: 'translateX(-50%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              maxWidth: '48%', pointerEvents: 'none', lineHeight: 1,
+            }}>
+              <span style={{
+                fontSize: 13, fontWeight: 600, letterSpacing: '0.12em', color: 'var(--mz-warn)',
+                textShadow: '0 0 8px rgba(var(--mz-warn-rgb),0.5)', whiteSpace: 'nowrap',
+              }}>SELECT NAMESPACE</span>
+              <span style={{ fontSize: 10, color: 'var(--mz-text-faint)', whiteSpace: 'nowrap' }}>
+                Enter to warp · Esc to cancel
+              </span>
+            </div>
+          )
           return (
         <div style={{
           position: 'absolute', left: '50%', top: 0, height: 44, transform: 'translateX(-50%)',

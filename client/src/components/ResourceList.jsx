@@ -193,7 +193,10 @@ export function ResourceList() {
 
   const displayItems = useMemo(() => {
     let items = allItems
-    if (activeNamespace !== 'all') items = items.filter(i => i.namespace === activeNamespace)
+    // Cluster-scoped resources (no namespaces at all - e.g. the namespace picker, nodes,
+    // pvs) are exempt from the active-namespace scope; otherwise picking a namespace would
+    // empty those lists. #91
+    if (activeNamespace !== 'all' && allNamespaces.length) items = items.filter(i => i.namespace === activeNamespace)
     if (filter) {
       const q = filter.toLowerCase()
       items = items.filter(i =>
@@ -202,7 +205,7 @@ export function ResourceList() {
     }
     if (faultsOnly) items = items.filter(isFault)
     return arrangeForDisplay(items, { activeNamespace, sortKey, sortDir, groupByNamespace })
-  }, [allItems, activeNamespace, filter, faultsOnly, sortKey, sortDir, groupByNamespace])
+  }, [allItems, allNamespaces, activeNamespace, filter, faultsOnly, sortKey, sortDir, groupByNamespace])
 
   // Grouped (namespace headers) only when opted in via ctrl+g; otherwise a flat
   // k9s-style list with NAMESPACE as a column.

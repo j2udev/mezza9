@@ -27,6 +27,7 @@ const SECTIONS = [
       ['(repeat)', 'Toggle sort direction'],
       ['ctrl+z', 'Toggle faults-only'],
       ['ctrl+g', 'Toggle namespace grouping'],
+      ['w', 'Warp to selected resource\'s namespace'],
       ['Shift+T', 'Theme switcher'],
       ['/', 'Filter by name / namespace'],
       [':', 'Resource picker (:pods, :ns, CRDs …)'],

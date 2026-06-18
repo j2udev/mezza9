@@ -1,4 +1,4 @@
-import { FORWARDABLE, OWNED } from './store'
+import { FORWARDABLE, OWNED, CLUSTER_SCOPED_RESOURCES } from './store'
 
 // ── Object action registry ────────────────────────────────────────────────────
 // Single source of truth for every per-object action. To add a new action, add one
@@ -58,6 +58,16 @@ export const OBJECT_ACTIONS = [
     when: r => FORWARDABLE.has(r), key: e => e.key === 'F', run: s => s.openPortForward() },
   { id: 'owner', label: 'Jump to owner', hint: '⇧j', color: 'var(--mz-accent-2)', group: 'Navigate',
     when: r => OWNED.has(r), key: e => e.key === 'J', run: s => s.jumpToOwner() },
+  // Warp to the selected resource's namespace (k9s-style `w`, #90) - scopes the view to it
+  // directly (like clicking a namespace header in grouped mode); toggles back to all if
+  // already scoped there. Only meaningful for namespaced resources.
+  { id: 'warp-ns', label: 'Warp to namespace', hint: 'w', color: 'var(--mz-accent-2)', group: 'Navigate',
+    when: r => !CLUSTER_SCOPED_RESOURCES.has(r) && r !== 'portforwards',
+    key: e => e.key === 'w', run: s => {
+      const item = s.getFilteredItems().find(i => i.id === s.selectedId)
+      const ns = item?.namespace
+      if (ns) s.setActiveNamespace(s.activeNamespace === ns ? 'all' : ns)
+    } },
   // From a CRD: jump to its custom-resource instances (also Enter in the list - #20). Surfaced
   // here so it appears as a panel chip + in the palette like every other action (task 21).
   { id: 'cr-instances', label: 'View resources', hint: '↵', color: 'var(--mz-accent-2)', group: 'Navigate',

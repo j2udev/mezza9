@@ -635,7 +635,10 @@ export const useStore = create((set, get) => ({
     const s = get()
     let items = s.drilldownItems
       || (s.activeResource.startsWith('cr:') ? (s.crdResources[s.activeResource.slice(3)] || []) : (s[s.activeResource] || []))
-    if (s.activeNamespace !== 'all') {
+    // Cluster-scoped resources (namespaces, nodes, pvs, CRDs, etc.) have no namespace, so
+    // the active-namespace scope must NOT apply to them - otherwise selecting a namespace
+    // empties the namespace picker (and the nodes/pvs lists). #91
+    if (s.activeNamespace !== 'all' && !CLUSTER_SCOPED_RESOURCES.has(s.activeResource)) {
       items = items.filter(i => i.namespace === s.activeNamespace)
     }
     if (s.filter) {
