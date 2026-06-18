@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { alpha } from '../theme'
-import { useStore } from '../store'
+import { useStore, kubectlResource } from '../store'
 import { VimEditor } from './VimEditor'
 import { VimHelpOverlay } from './VimHelpOverlay'
 
@@ -366,7 +366,7 @@ export function ActionModal() {
     if (!modal) return
     setLoading(true); setFetchError(null)
     try {
-      const res  = await fetch(`/api/yaml/${modal.resource}/${nsParam}/${modal.item.name}`)
+      const res  = await fetch(`/api/yaml/${kubectlResource(modal.resource)}/${nsParam}/${modal.item.name}`)
       const data = await res.json()
       setContent(data.output || '')
     } catch (err) { setFetchError(err.message) }
@@ -377,7 +377,7 @@ export function ActionModal() {
     if (!modal) return
     setLoading(true); setFetchError(null)
     try {
-      const res  = await fetch(`/api/describe/${modal.resource}/${nsParam}/${modal.item.name}`)
+      const res  = await fetch(`/api/describe/${kubectlResource(modal.resource)}/${nsParam}/${modal.item.name}`)
       const data = await res.json()
       setDescribeContent(data.output || '')
     } catch (err) { setFetchError(err.message) }
@@ -388,7 +388,7 @@ export function ActionModal() {
     if (!modal) return
     setLoading(true); setFetchError(null)
     try {
-      const url  = `/api/json/${modal.resource}/${nsParam}/${modal.item.name}`
+      const url  = `/api/json/${kubectlResource(modal.resource)}/${nsParam}/${modal.item.name}`
       const res  = await fetch(url)
       const data = await res.json()
       setJsonContent(data.output || '')

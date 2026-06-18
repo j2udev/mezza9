@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useStore } from '../store'
+import { useStore, kubectlResource } from '../store'
 
 const CLUSTER_SCOPED = new Set(['nodes', 'pvs', 'namespaces', 'crds', 'clusterroles', 'clusterrolebindings', 'storageclasses'])
 
@@ -34,7 +34,7 @@ export function DeleteModal() {
     try {
       await Promise.all(items.map(async item => {
         const ns = CLUSTER_SCOPED.has(resource) ? '_' : (item.namespace || '_')
-        const res  = await fetch(`/api/delete/${resource}/${ns}/${item.name}`, { method: 'DELETE' })
+        const res  = await fetch(`/api/delete/${kubectlResource(resource)}/${ns}/${item.name}`, { method: 'DELETE' })
         const data = await res.json()
         if (!data.ok) throw new Error(data.error || `Failed to delete ${item.name}`)
       }))

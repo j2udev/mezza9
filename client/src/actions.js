@@ -19,9 +19,11 @@ import { FORWARDABLE, OWNED } from './store'
 
 // 'containers' = the synthetic pod-drilldown rows; `l` on one tails that single container (#80).
 const LOGS = new Set(['pods', 'deployments', 'statefulsets', 'daemonsets', 'services', 'jobs', 'containers'])
-// "Standard" workloads/config that support yaml/edit/describe/delete (not helm, container
-// drilldown rows, or raw custom-resource lists).
-const isStd = (r) => r !== 'helmreleases' && r !== 'containers' && r !== 'portforwards' && !r.startsWith('cr:')
+// "Standard" resources that support describe/yaml/json/edit/delete. Native types AND custom
+// resource instances (`cr:group/version/plural`) qualify - kubectl drives all of these the
+// same way via kubectlResource() (task 21). Helm releases, the container drilldown rows, and
+// the port-forward table are not kubectl objects, so they are excluded.
+const isStd = (r) => r !== 'helmreleases' && r !== 'containers' && r !== 'portforwards'
 
 export const OBJECT_ACTIONS = [
   // ── Inspect ──────────────────────────────────────────────
@@ -56,6 +58,11 @@ export const OBJECT_ACTIONS = [
     when: r => FORWARDABLE.has(r), key: e => e.key === 'F', run: s => s.openPortForward() },
   { id: 'owner', label: 'Jump to owner', hint: '⇧j', color: 'var(--mz-accent-2)', group: 'Navigate',
     when: r => OWNED.has(r), key: e => e.key === 'J', run: s => s.jumpToOwner() },
+  // From a CRD: jump to its custom-resource instances (also Enter in the list - #20). Surfaced
+  // here so it appears as a panel chip + in the palette like every other action (task 21).
+  { id: 'cr-instances', label: 'View resources', hint: '↵', color: 'var(--mz-accent-2)', group: 'Navigate',
+    when: r => r === 'crds',
+    run: s => { const c = s.getItems().find(i => i.id === s.selectedId); if (c) s.fetchCrdResources(c.group, c.version, c.plural) } },
 
   // ── Danger ───────────────────────────────────────────────
   // ctrl+d / ctrl+k are handled directly in useKeys (multi-select aware); these entries

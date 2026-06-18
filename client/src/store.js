@@ -54,6 +54,17 @@ export const FORWARDABLE = new Set(['pods', 'services', 'deployments', 'stateful
 // Resource types whose items carry an `owner` jump target (shift+j)
 export const OWNED = new Set(['pods', 'replicasets', 'jobs'])
 
+// Map an internal resource key to the kubectl resource identifier used in API paths
+// (describe/yaml/json/delete). Custom-resource lists are keyed `cr:group/version/plural`;
+// kubectl addresses those instances as `<plural>.<group>` (e.g. servicemonitors.monitoring.coreos.com),
+// which is a single path segment (no slash), so it slots straight into the API route. Native
+// resources pass through unchanged. (task 21)
+export function kubectlResource(resource) {
+  if (!resource.startsWith('cr:')) return resource
+  const [group, , plural] = resource.slice(3).split('/')
+  return group ? `${plural}.${group}` : plural
+}
+
 // ── Sorting & fault detection ────────────────────────────────────────────────
 
 const HEALTHY_STATUSES = new Set([
@@ -514,7 +525,7 @@ export const useStore = create((set, get) => ({
     if (s.demoMode) return
     const kill = (item) => {
       const ns = CLUSTER_SCOPED_RESOURCES.has(s.activeResource) ? '_' : (item.namespace || '_')
-      fetch(`/api/delete/${s.activeResource}/${ns}/${item.name}`, { method: 'DELETE' }).catch(() => {})
+      fetch(`/api/delete/${kubectlResource(s.activeResource)}/${ns}/${item.name}`, { method: 'DELETE' }).catch(() => {})
     }
     if (s.selectedIds.size > 0) {
       s.getFilteredItems().filter(i => s.selectedIds.has(i.id)).forEach(kill)
