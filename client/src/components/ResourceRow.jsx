@@ -193,6 +193,12 @@ function rowFields(item, resource) {
         { value: item.status, color: statusColor(item.status), w: 88 },
         { value: item.pod,    color: 'var(--mz-accent-2)', w: 200, mono: true },
       ]
+    case 'healthfindings':
+      return [
+        { value: item.severity.toUpperCase(), color: item.severity === 'critical' ? 'var(--mz-danger)' : 'var(--mz-warn)', w: 80 },
+        { value: item.resource,  color: 'var(--mz-alt)', w: 110 },
+        { value: item.title,     color: 'var(--mz-text-dim)', w: 300 },
+      ]
     case 'portforwards':
       return [
         { value: item.resource.replace(/s$/, ''),  color: 'var(--mz-alt)', w: 100 },

@@ -7,6 +7,7 @@ import { PortForwardModal } from './PortForwardModal'
 import { ExecModal } from './ExecModal'
 import { HelpModal } from './HelpModal'
 import { ActionMenu } from './ActionMenu'
+import { AIModal } from './AIModal'
 
 // Built-in resource names the `:` resource picker can autocomplete/cycle through (Tab). The
 // canonical resource names (deduped alias targets) plus the `ns` namespace-picker shortcut.
@@ -486,6 +487,9 @@ export function HUD({ panelWidth = 288 }) {
 
       {/* ── Shell terminal (#81) ─────────────────────────────────── */}
       <ExecModal />
+
+      {/* ── AI Analyze (#78) ────────────────────────────────────── */}
+      <AIModal />
 
       {/* ── Help modal ───────────────────────────────────────────── */}
       <HelpModal />

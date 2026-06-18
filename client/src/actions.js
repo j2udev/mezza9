@@ -23,7 +23,7 @@ const LOGS = new Set(['pods', 'deployments', 'statefulsets', 'daemonsets', 'serv
 // resource instances (`cr:group/version/plural`) qualify - kubectl drives all of these the
 // same way via kubectlResource() (task 21). Helm releases, the container drilldown rows, and
 // the port-forward table are not kubectl objects, so they are excluded.
-const isStd = (r) => r !== 'helmreleases' && r !== 'containers' && r !== 'portforwards'
+const isStd = (r) => r !== 'helmreleases' && r !== 'containers' && r !== 'portforwards' && r !== 'healthfindings'
 
 export const OBJECT_ACTIONS = [
   // ── Inspect ──────────────────────────────────────────────
@@ -38,6 +38,11 @@ export const OBJECT_ACTIONS = [
     when: r => isStd(r), key: e => e.key === 'e', run: s => s.openModal('edit') },
   { id: 'decode', label: 'Decode secret', hint: 'x', color: 'var(--mz-orange)', group: 'Inspect',
     when: r => r === 'secrets', key: e => e.key === 'x', run: s => s.openSecretDecoded() },
+  // AI Analyze (#78): deliberately NO key binding - only reachable via the panel chip and the
+  // `a` palette, so it can never be a casual one-keystroke action. Available on any standard
+  // object (ad hoc analysis) or a Cluster Health finding (pre-seeded with the detected problem).
+  { id: 'ai-analyze', label: 'AI Analyze', hint: null, color: 'var(--mz-info)', group: 'Inspect',
+    when: r => isStd(r) || r === 'healthfindings', run: s => s.openAIModal() },
 
   // ── Helm ─────────────────────────────────────────────────
   { id: 'helm-values', label: 'Values', hint: 'v', color: 'var(--mz-ok)', group: 'Helm',

@@ -38,6 +38,7 @@ const COL_HEADERS = {
   helmreleases:        ['CHART', 'VERSION', 'STATUS', 'AGE'],
   containers:          ['STATUS', 'POD'],
   portforwards:        ['RESOURCE', 'LOCAL', 'REMOTE', 'STATUS', 'ERROR'],
+  healthfindings:      ['SEVERITY', 'RESOURCE', 'ISSUE'],
   __cr__:              ['STATUS', 'AGE'],
 }
 const COL_WIDTHS = {
@@ -71,6 +72,7 @@ const COL_WIDTHS = {
   helmreleases:        [200, 80, 88, 55],
   containers:          [88, 200],
   portforwards:        [100, 130, 70, 80, 160],
+  healthfindings:      [80, 110, 300],
   __cr__:              [88, 55],
 }
 

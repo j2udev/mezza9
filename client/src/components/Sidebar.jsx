@@ -59,9 +59,10 @@ const GROUPS = [
   {
     label: 'CLUSTER', color: 'var(--mz-info)',
     items: [
-      { key: 'nodes',      label: 'Nodes'      },
-      { key: 'namespaces', label: 'Namespaces' },
-      { key: 'events',     label: 'Events'     },
+      { key: 'nodes',          label: 'Nodes'          },
+      { key: 'namespaces',     label: 'Namespaces'     },
+      { key: 'events',         label: 'Events'         },
+      { key: 'healthfindings', label: 'Cluster Health' },
     ],
   },
   {
@@ -158,6 +159,7 @@ export function Sidebar() {
     nodes:               useStore(s => s.nodes.length),
     namespaces:          useStore(s => s.namespaces.length),
     events:              useStore(s => s.events.length),
+    healthfindings:      useStore(s => s.healthfindings.length),
     helmreleases:        useStore(s => s.helmreleases.length),
   }
 

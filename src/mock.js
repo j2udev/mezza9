@@ -722,3 +722,23 @@ export function getMockHelmNotes(name) {
 `
 }
 
+// Demo-mode stand-in for the AI Analyze action (#78). Demo mode has no provider configured,
+// so this is a static-but-plausible example rather than a real diagnosis - it exists so the
+// whole feature is visible/exercisable without API keys, matching demo mode's purpose
+// elsewhere in the app.
+export function getMockAIResponse(resource, name, isInitial) {
+  if (isInitial) {
+    return `**Likely cause:** ${name} appears to be failing its readiness checks, consistent ` +
+      `with a misconfigured image tag or a dependency (database, config) not yet reachable at ` +
+      `startup.\n\n` +
+      `**Suggested fix:**\n` +
+      `1. Confirm the image tag resolves to a published, accessible image.\n` +
+      `2. Verify any required ConfigMap/Secret values are present and correctly mounted.\n` +
+      `3. If the app has a slow startup, increase the readiness/liveness probe initial delay.\n\n` +
+      `_This is a demo-mode example response - set MEZZ_AI_PROVIDER/MEZZ_AI_API_KEY to get ` +
+      `real analysis from your actual cluster context._`
+  }
+  return `Follow-up responses are canned in demo mode and don't reflect your actual question. ` +
+    `Set MEZZ_AI_PROVIDER/MEZZ_AI_API_KEY to enable real conversational follow-ups.`
+}
+

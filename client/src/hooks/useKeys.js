@@ -30,6 +30,12 @@ export function useKeys() {
         return
       }
 
+      // AI Analyze modal has its own follow-up input; only Esc is handled globally (#78).
+      if (s.aiModal) {
+        if (e.key === 'Escape') s.closeAIModal()
+        return
+      }
+
       // The shell terminal owns the keyboard entirely (every key goes to xterm, including
       // Esc - vim etc. need it). ExecModal closes via its own × button / shell exit (#81).
       if (s.execModal) return
@@ -145,6 +151,11 @@ export function useKeys() {
         // a: open the actions palette for the selected object
         case 'a':
           if (s.selectedId && applicableActions(s.activeResource).length) { e.preventDefault(); s.openActionMenu() }
+          break
+
+        // r: rescan Cluster Health (manual only, #78 - never auto-triggered elsewhere)
+        case 'r':
+          if (s.activeResource === 'healthfindings') { e.preventDefault(); s.scanHealth() }
           break
 
         case 'G':

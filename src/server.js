@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import { WebSocketServer } from 'ws'
 import { createServer } from 'http'
@@ -11,7 +12,9 @@ import { promisify } from 'util'
 import cors from 'cors'
 import yaml from 'js-yaml'
 import { fetchResources, fetchCrdInstances, getExec } from './k8s.js'
-import { getMockLogs, getMockDescribe, getMockYaml, getMockCrdResources, getMockHelmValues, getMockHelmAllValues, getMockHelmManifest, getMockHelmHistory, getMockHelmNotes } from './mock.js'
+import { getMockLogs, getMockDescribe, getMockYaml, getMockCrdResources, getMockHelmValues, getMockHelmAllValues, getMockHelmManifest, getMockHelmHistory, getMockHelmNotes, getMockAIResponse } from './mock.js'
+import { scanCluster } from './diagnostics.js'
+import { chatComplete, AI_SYSTEM_PROMPT } from './ai.js'
 
 const execAsync = promisify(exec)
 
@@ -21,6 +24,14 @@ const execAsync = promisify(exec)
 // start.sh exports MEZZ_KUBECTL/MEZZ_HELM to the nix profile paths.
 const KUBECTL = process.env.MEZZ_KUBECTL || 'kubectl'
 const HELM    = process.env.MEZZ_HELM    || 'helm'
+
+// AI Analyze backend (#78) - optional, pluggable. Unset MEZZ_AI_PROVIDER means the feature
+// degrades gracefully (clear "not configured" message) rather than erroring. Configured via
+// a gitignored .env (see .env.example), loaded by the dotenv/config import above.
+const MEZZ_AI_PROVIDER    = process.env.MEZZ_AI_PROVIDER || ''
+const MEZZ_AI_API_KEY     = process.env.MEZZ_AI_API_KEY || ''
+const MEZZ_AI_MODEL       = process.env.MEZZ_AI_MODEL || ''
+const MEZZ_AI_OLLAMA_HOST = process.env.MEZZ_AI_OLLAMA_HOST || 'http://localhost:11434'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distDir = join(__dirname, '..', 'client', 'dist')
@@ -48,8 +59,14 @@ let latest = {
   roles: [], clusterroles: [], rolebindings: [], clusterrolebindings: [],
   nodes: [], namespaces: [], events: [], crds: [], helmreleases: [],
   portforwards: [],
+  healthfindings: [],
   demoMode: false, clusterConnected: false, clusterError: null,
 }
+
+// Cluster Health findings (#78) - populated ONLY by POST /api/diagnostics/scan, never by the
+// 5s refresh() poll below. That's what keeps the scan on-demand-only: refresh() just keeps
+// relaying whatever the last manual scan produced instead of recomputing it.
+let healthFindings = []
 
 let refreshing = false
 async function refresh() {
@@ -62,6 +79,7 @@ async function refresh() {
     ])
     latest = data
     latest.portforwards = pfList()   // surface live forwards in the data stream (#53)
+    latest.healthfindings = healthFindings   // relay last manual scan (#78), never recompute here
     const msg = JSON.stringify({ type: 'update', data: latest })
     for (const ws of clients) {
       if (ws.readyState === 1) ws.send(msg)
@@ -77,7 +95,7 @@ wss.on('connection', (ws, req) => {
   // /ws/exec is an interactive pod shell session (task 81), not a data-stream subscriber.
   if ((req.url || '').startsWith('/ws/exec')) { handleExec(ws, req); return }
   clients.add(ws)
-  ws.send(JSON.stringify({ type: 'update', data: { ...latest, portforwards: pfList() } }))
+  ws.send(JSON.stringify({ type: 'update', data: { ...latest, portforwards: pfList(), healthfindings: healthFindings } }))
   ws.on('close', () => clients.delete(ws))
   ws.on('error', () => clients.delete(ws))
 })
@@ -187,7 +205,7 @@ app.get('/api/exec/shells/:namespace/:pod', async (req, res) => {
 })
 
 app.get('/api/health', (_, res) => res.json({ ok: true, demoMode: latest.demoMode }))
-app.get('/api/data', (_, res) => res.json({ ...latest, portforwards: pfList() }))
+app.get('/api/data', (_, res) => res.json({ ...latest, portforwards: pfList(), healthfindings: healthFindings }))
 app.get('/api/logs/:namespace/:pod', async (req, res) => {
   const { namespace, pod } = req.params
   const { container, tail, sinceSeconds } = req.query
@@ -351,6 +369,98 @@ app.get('/api/json/:resource/:namespace/:name', async (req, res) => {
     res.json({ output: JSON.stringify(JSON.parse(stdout), null, 2) })
   } catch (err) {
     res.json({ output: '', error: err.message })
+  }
+})
+
+// Cluster Health (#78) - on-demand scan only, never auto-run by refresh().
+app.post('/api/diagnostics/scan', (_, res) => {
+  healthFindings = scanCluster(latest)
+  latest.healthfindings = healthFindings
+  const msg = JSON.stringify({ type: 'update', data: latest })
+  for (const ws of clients) {
+    if (ws.readyState === 1) ws.send(msg)
+  }
+  res.json({ findings: healthFindings })
+})
+
+// Gather describe+yaml(+recent logs for pods) for one resource, used to seed the AI Analyze
+// system context. Reuses the same kubectl/client-node calls as /api/describe and /api/yaml.
+async function gatherAiContext(resource, namespace, name) {
+  const nsFlag = namespace !== '_' ? `-n ${namespace}` : ''
+  let describeText = '', yamlText = '', logsText = ''
+  try {
+    const { stdout } = await execAsync(`${KUBECTL} describe ${resource}/${name} ${nsFlag}`, { timeout: 15000 })
+    describeText = stdout
+  } catch (err) {
+    describeText = `(describe failed: ${err.message})`
+  }
+  try {
+    const { stdout } = await execAsync(`${KUBECTL} get ${resource}/${name} ${nsFlag} -o yaml`, { timeout: 15000 })
+    yamlText = stdout
+  } catch (err) {
+    yamlText = `(yaml fetch failed: ${err.message})`
+  }
+  if (resource === 'pods') {
+    try {
+      const k8s = await import('@kubernetes/client-node')
+      const kc = new k8s.KubeConfig()
+      kc.loadFromDefault()
+      const coreApi = kc.makeApiClient(k8s.CoreV1Api)
+      const result = await coreApi.readNamespacedPodLog({ name, namespace, tailLines: 50 })
+      logsText = typeof result === 'string' ? result : String(result)
+    } catch (err) {
+      logsText = `(logs fetch failed: ${err.message})`
+    }
+  }
+  return { describeText, yamlText, logsText }
+}
+
+function buildAiSeedPrompt({ resource, namespace, name, finding, context }) {
+  let prompt = `Resource: ${resource}/${namespace !== '_' ? namespace : '(cluster-scoped)'}/${name}\n\n`
+  if (finding) {
+    prompt += `A cluster scan flagged this resource: [${finding.severity}] ${finding.title} - ${finding.detail}\n\n`
+  }
+  prompt += `--- kubectl describe ---\n${context.describeText}\n\n--- yaml ---\n${context.yamlText}`
+  if (context.logsText) prompt += `\n\n--- recent logs (last 50 lines) ---\n${context.logsText}`
+  return prompt
+}
+
+// AI Analyze (#78) - one stateless endpoint for both the initial explanation and scoped
+// follow-ups. Empty `history` = initial call (server gathers context and seeds the first
+// message); non-empty `history` = a follow-up (client echoes back what /api/ai/chat last
+// returned, plus its new question appended). No server-side session storage.
+app.post('/api/ai/chat', async (req, res) => {
+  const { resource, namespace, name, findingId, history } = req.body || {}
+  const hist = Array.isArray(history) ? history : []
+  if (hist.length > 8) {
+    return res.status(400).json({ error: 'Conversation too long.' })
+  }
+
+  if (latest.demoMode) {
+    const reply = getMockAIResponse(resource, name, hist.length === 0)
+    return res.json({ reply, messages: [...hist, { role: 'assistant', content: reply }] })
+  }
+
+  if (!MEZZ_AI_PROVIDER) {
+    return res.json({ reply: null, error: 'AI not configured. Set MEZZ_AI_PROVIDER / MEZZ_AI_API_KEY in .env.' })
+  }
+
+  let messages = hist
+  if (hist.length === 0) {
+    const finding = findingId ? healthFindings.find(f => f.id === findingId) : null
+    const context = await gatherAiContext(resource, namespace, name)
+    const seed = buildAiSeedPrompt({ resource, namespace, name, finding, context })
+    messages = [{ role: 'user', content: seed }]
+  }
+
+  try {
+    const reply = await chatComplete({
+      provider: MEZZ_AI_PROVIDER, apiKey: MEZZ_AI_API_KEY, model: MEZZ_AI_MODEL,
+      ollamaHost: MEZZ_AI_OLLAMA_HOST, systemPrompt: AI_SYSTEM_PROMPT, messages,
+    })
+    res.json({ reply, messages: [...messages, { role: 'assistant', content: reply }] })
+  } catch (err) {
+    res.json({ reply: null, error: err.message })
   }
 })
 

@@ -52,6 +52,7 @@ export const RESOURCE_ALIASES = {
   crd: 'crds', crds: 'crds',
   helm: 'helmreleases', helmreleases: 'helmreleases',
   pf: 'portforwards', portforward: 'portforwards', portforwards: 'portforwards', forwards: 'portforwards',
+  health: 'healthfindings', healthfindings: 'healthfindings', diagnostics: 'healthfindings',
 }
 
 // Resource types that support Enter drill-down
@@ -170,6 +171,8 @@ export const useStore = create((set, get) => ({
   crdResources: {},
   helmreleases: [],
   portforwards: [],       // active kubectl port-forwards (k9s-style table, #53)
+  healthfindings: [],     // last Cluster Health scan results, on-demand only (#78)
+  healthScanning: false,
   selectedIds: new Set(), // multi-select
   demoMode: false,
   connected: false,          // WebSocket transport connection
@@ -233,19 +236,25 @@ export const useStore = create((set, get) => ({
   modal: null,
   pfModal: null,         // { item, resource } when the port-forward dialog is open
   execModal: null,       // { namespace, pod, container, label } when the shell terminal is open (#81)
+  aiModal: null,         // { resource, namespace, name, findingId, seedTitle } when AI Analyze is open (#78)
   deleteConfirm: null,   // { item, resource } when ctrl+d confirm is pending
 
   setData: (data) => set(data),
   setConnected: (v) => set({ connected: v }),
 
-  setActiveResource: (r) => set(s => ({
-    activeResource: r, selectedId: null, selectedIds: new Set(), filter: '', filterActive: false, filterPinned: false,
-    // Record the view we're leaving so `[` can come back to it (skip self-switches). (#79)
-    navStack: r === s.activeResource ? s.navStack : pushNav(s.navStack, navFrame(s)),
-    navFuture: [], drilldownItems: null, drilldownLabel: '',
-    nsPickerMode: false, previousResource: null,
-    sortKey: null, sortDir: 'asc',
-  })),
+  setActiveResource: (r) => {
+    const prev = get()
+    set(s => ({
+      activeResource: r, selectedId: null, selectedIds: new Set(), filter: '', filterActive: false, filterPinned: false,
+      // Record the view we're leaving so `[` can come back to it (skip self-switches). (#79)
+      navStack: r === s.activeResource ? s.navStack : pushNav(s.navStack, navFrame(s)),
+      navFuture: [], drilldownItems: null, drilldownLabel: '',
+      nsPickerMode: false, previousResource: null,
+      sortKey: null, sortDir: 'asc',
+    }))
+    // Cluster Health is on-demand only - scan when first navigated to if stale (#78).
+    if (r === 'healthfindings' && prev.healthfindings.length === 0) get().scanHealth()
+  },
   setActiveNamespace: (ns) => set({ activeNamespace: ns, selectedId: null, selectedIds: new Set() }),
   setSelected: (id) => set({ selectedId: id }),
   toggleMultiSelect: (id) => set(s => {
@@ -322,6 +331,8 @@ export const useStore = create((set, get) => ({
         sortKey: null, sortDir: 'asc',
         command: '', commandActive: false, filterMode: 'str',
       })
+      // Cluster Health is on-demand only - scan when first navigated to if stale (#78).
+      if (resolved === 'healthfindings' && s.healthfindings.length === 0) get().scanHealth()
       return true
     }
 
@@ -603,6 +614,38 @@ export const useStore = create((set, get) => ({
     }
   },
   closeExec: () => set({ execModal: null }),
+
+  // Cluster Health (#78) - manual scan only, triggered by navigating to the view (if stale)
+  // or the `r` rescan key. Never auto-runs in the background.
+  scanHealth: async () => {
+    set({ healthScanning: true })
+    try {
+      const res = await fetch('/api/diagnostics/scan', { method: 'POST' })
+      const data = await res.json()
+      set({ healthfindings: data.findings || [] })
+    } catch { /* noop - next manual rescan will retry */ }
+    set({ healthScanning: false })
+  },
+
+  // AI Analyze (#78) - opens from either a health finding or any standard object's chips.
+  // findingId is only set when invoked from the healthfindings view.
+  openAIModal: () => {
+    const s = get()
+    if (!s.selectedId) return
+    const item = s.getItems().find(i => i.id === s.selectedId)
+    if (!item) return
+    const isFinding = s.activeResource === 'healthfindings'
+    set({
+      aiModal: {
+        resource: isFinding ? item.resource : s.activeResource,
+        namespace: item.namespace,
+        name: item.name,
+        findingId: isFinding ? item.id : null,
+        seedTitle: isFinding ? item.title : item.name,
+      },
+    })
+  },
+  closeAIModal: () => set({ aiModal: null }),
 
   // Jump to the controller that owns the selected item (shift+j). Pushes a nav frame
   // so `[` returns. No-op if the item has no owner or the owner isn't in current data.
