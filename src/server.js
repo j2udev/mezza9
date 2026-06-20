@@ -10,7 +10,7 @@ import { PassThrough, Writable } from 'stream'
 import { promisify } from 'util'
 import cors from 'cors'
 import yaml from 'js-yaml'
-import { fetchResources, fetchCrdInstances, getExec } from './k8s.js'
+import { fetchResources, fetchCrdInstances, getExec, addEphemeralDebugContainer } from './k8s.js'
 import { getMockLogs, getMockDescribe, getMockYaml, getMockCrdResources, getMockHelmValues, getMockHelmAllValues, getMockHelmManifest, getMockHelmHistory, getMockHelmNotes } from './mock.js'
 
 const execAsync = promisify(exec)
@@ -134,8 +134,15 @@ async function handleExec(ws, req) {
   ws.on('close', cleanup)
   ws.on('error', cleanup)
 
+  // `kubectl exec -it` exports TERM from the client; client-node's Exec does not, so the shell
+  // would start with an empty TERM. busybox vi tolerates that, but full curses apps (vim, less,
+  // top) can't load termcap and hang waiting for input they can't decode - which looked like the
+  // terminal "freezing". Re-exec the shell with a sane TERM (done via the shell itself so we
+  // don't depend on env(1) existing). $0 is the shell path passed as the trailing arg.
+  const cmd = [shell, '-c', 'export TERM=xterm-256color; exec "$0"', shell]
+
   try {
-    conn = await exec.exec(namespace, pod, container, [shell], stdout, stderr, stdin, true, (status) => {
+    conn = await exec.exec(namespace, pod, container, cmd, stdout, stderr, stdin, true, (status) => {
       send({ type: 'exit', status: status.status, message: status.message })
       cleanup()
     })
@@ -183,6 +190,22 @@ app.get('/api/exec/shells/:namespace/:pod', async (req, res) => {
     res.json({ shells: results.filter(Boolean) })
   } catch (err) {
     res.json({ shells: [], error: err.message })
+  }
+})
+
+// POST /api/debug/:namespace/:pod {image, target?} -> { container } | { error }  (#82)
+// Injects an ephemeral debug container; the frontend then execs a shell into the returned
+// container name via the normal /ws/exec flow.
+app.post('/api/debug/:namespace/:pod', async (req, res) => {
+  const { namespace, pod } = req.params
+  const { image, target } = req.body || {}
+  if (latest.demoMode) return res.status(400).json({ error: 'Debug is not available in demo mode.' })
+  if (!image) return res.status(400).json({ error: 'Missing debug image.' })
+  try {
+    const out = await addEphemeralDebugContainer(namespace, pod, { image, target })
+    res.json(out)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 

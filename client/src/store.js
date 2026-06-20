@@ -233,6 +233,7 @@ export const useStore = create((set, get) => ({
   modal: null,
   pfModal: null,         // { item, resource } when the port-forward dialog is open
   execModal: null,       // { namespace, pod, container, label } when the shell terminal is open (#81)
+  debugModal: null,      // { namespace, pod, target, containers, label } when the debug dialog is open (#82)
   deleteConfirm: null,   // { item, resource } when ctrl+d confirm is pending
 
   setData: (data) => set(data),
@@ -603,6 +604,36 @@ export const useStore = create((set, get) => ({
     }
   },
   closeExec: () => set({ execModal: null }),
+
+  // Debug into a pod with an ephemeral container (#82), kubectl-debug style. Opens the debug
+  // dialog (image + target container picker); on submit it injects the container server-side
+  // and then hands off to the shell terminal (execModal) bound to that ephemeral container.
+  // `target` = the container whose process namespace the debugger shares (a distroless app
+  // container that has no shell of its own can still be inspected this way).
+  openDebug: () => {
+    const s = get()
+    if (!s.selectedId) return
+    const item = s.getItems().find(i => i.id === s.selectedId)
+    if (!item) return
+    if (s.activeResource === 'containers') {
+      set({ debugModal: { namespace: item.namespace, pod: item.pod, target: item.name, containers: [item.name], label: `${item.pod} / ${item.name}` } })
+    } else if (s.activeResource === 'pods') {
+      const containers = (item.containers || []).map(c => typeof c === 'string' ? c : c?.name).filter(Boolean)
+      set({ debugModal: { namespace: item.namespace, pod: item.name, target: containers[0] || '', containers, label: item.name } })
+    }
+  },
+  closeDebug: () => set({ debugModal: null }),
+  // Hand off from the debug dialog to the shell terminal once the ephemeral container is up.
+  debugToShell: ({ namespace, pod, container, label }) =>
+    set({ debugModal: null, execModal: { namespace, pod, container, label } }),
+  // Offered when `s` finds no shell in a container: close the terminal and open the debug
+  // dialog for the same pod/container (an ephemeral busybox/netshoot container brings its own
+  // shell, so a distroless pod becomes inspectable).
+  execToShellDebug: () => {
+    const e = get().execModal
+    if (!e) return
+    set({ execModal: null, debugModal: { namespace: e.namespace, pod: e.pod, target: e.container, containers: e.container ? [e.container] : [], label: e.label } })
+  },
 
   // Jump to the controller that owns the selected item (shift+j). Pushes a nav frame
   // so `[` returns. No-op if the item has no owner or the owner isn't in current data.

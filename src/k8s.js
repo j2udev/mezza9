@@ -73,6 +73,57 @@ export async function getExec() {
   return new lib.Exec(kc)
 }
 
+// Add an ephemeral debug container to a running pod, kubectl-debug style (#82). Injects a
+// container running `<image>` into the live pod (sharing the target container's process
+// namespace when `target` is given), waits until it is Running, and returns its generated
+// name. server.js then execs a shell into it via the normal /ws/exec path - so a distroless
+// pod with no shell of its own can still be debugged with busybox/netshoot tooling.
+// The container is kept alive with a long sleep (portable across busybox/coreutils) so the
+// shell we exec in has something to attach to; ephemeral containers cannot be removed, only
+// re-added, which matches kubectl debug's own behavior.
+export async function addEphemeralDebugContainer(namespace, pod, { image, target } = {}) {
+  const kc = await getClient()
+  if (!kc) throw new Error('No live cluster connection.')
+  const lib = await loadK8s()
+  const coreApi = kc.makeApiClient(lib.CoreV1Api)
+
+  const name = `mezz-debug-${Math.random().toString(36).slice(2, 7)}`
+  const ec = {
+    name,
+    image,
+    imagePullPolicy: 'IfNotPresent',
+    command: ['sleep', '2147483647'],
+    stdin: true,
+    tty: true,
+    terminationMessagePolicy: 'File',
+    ...(target ? { targetContainerName: target } : {}),
+  }
+
+  // The ephemeralcontainers subresource read returns a Pod; append our container and PUT it
+  // back. (kubectl uses a strategic-merge patch; read+replace avoids patch content-type
+  // wrangling and is equivalent for an additive change.)
+  const cur = await coreApi.readNamespacedPodEphemeralcontainers({ name: pod, namespace })
+  cur.spec = cur.spec || {}
+  cur.spec.ephemeralContainers = [...(cur.spec.ephemeralContainers || []), ec]
+  await coreApi.replaceNamespacedPodEphemeralcontainers({ name: pod, namespace, body: cur })
+
+  // Poll until the container is Running, or surface a pull/start failure instead of hanging.
+  const deadline = Date.now() + 45000
+  while (Date.now() < deadline) {
+    const p = await coreApi.readNamespacedPod({ name: pod, namespace })
+    const st = (p.status?.ephemeralContainerStatuses || []).find(c => c.name === name)
+    if (st?.state?.running) return { container: name }
+    const w = st?.state?.waiting
+    if (w?.reason && /Err|BackOff|Invalid|Failed/i.test(w.reason)) {
+      throw new Error(`${w.reason}: ${w.message || 'debug container failed to start'}`)
+    }
+    const t = st?.state?.terminated
+    if (t) throw new Error(`Debug container exited (${t.reason || `code ${t.exitCode}`})`)
+    await new Promise(r => setTimeout(r, 800))
+  }
+  throw new Error('Timed out waiting for the debug container to start.')
+}
+
 function age(ts) {
   if (!ts) return ''
   const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000)

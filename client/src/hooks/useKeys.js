@@ -34,6 +34,9 @@ export function useKeys() {
       // Esc - vim etc. need it). ExecModal closes via its own × button / shell exit (#81).
       if (s.execModal) return
 
+      // The debug dialog (#82) has its own image input + Esc handling; yield the keyboard.
+      if (s.debugModal) { if (e.key === 'Escape') s.closeDebug(); return }
+
       if (s.helpOpen) {
         if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); s.setHelpOpen(false) }
         return

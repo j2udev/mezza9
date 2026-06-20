@@ -5,6 +5,7 @@ import { DetailPanel } from './DetailPanel'
 import { ActionModal } from './ActionModal'
 import { PortForwardModal } from './PortForwardModal'
 import { ExecModal } from './ExecModal'
+import { DebugModal } from './DebugModal'
 import { HelpModal } from './HelpModal'
 import { ActionMenu } from './ActionMenu'
 
@@ -499,6 +500,9 @@ export function HUD({ panelWidth = 288 }) {
 
       {/* ── Shell terminal (#81) ─────────────────────────────────── */}
       <ExecModal />
+
+      {/* ── Debug ephemeral container dialog (#82) ───────────────── */}
+      <DebugModal />
 
       {/* ── Help modal ───────────────────────────────────────────── */}
       <HelpModal />

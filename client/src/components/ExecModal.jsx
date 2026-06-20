@@ -19,6 +19,7 @@ const cssVar = (name, fallback) =>
 export function ExecModal() {
   const execModal = useStore(s => s.execModal)
   const closeExec = useStore(s => s.closeExec)
+  const execToShellDebug = useStore(s => s.execToShellDebug)
 
   // shells: null = still probing, [] = none found, [..] = available (best-first).
   const [shells, setShells] = useState(null)
@@ -242,8 +243,16 @@ export function ExecModal() {
               {!detectError && (
                 <span style={{ fontSize: 11, color: 'var(--mz-text-faint)', maxWidth: 460 }}>
                   This image has none of sh / bash / zsh / ash / dash (e.g. a distroless or scratch
-                  image). There is nothing to exec into.
+                  image). There is nothing to exec into - but you can attach an ephemeral debug
+                  container that brings its own shell.
                 </span>
+              )}
+              {!detectError && (
+                <button onClick={execToShellDebug}
+                  style={{
+                    marginTop: 6, fontSize: 11, fontWeight: 'bold', letterSpacing: '0.04em', padding: '5px 14px', borderRadius: 4,
+                    cursor: 'pointer', color: 'var(--mz-bg)', background: ACCENT, border: `1px solid ${ACCENT}`,
+                  }}>Debug with an ephemeral container</button>
               )}
               <span style={{ fontSize: 11, color: 'var(--mz-text-faint)', marginTop: 4 }}>
                 Press <kbd style={kbdStyle}>Esc</kbd> or <kbd style={kbdStyle}>Ctrl-D</kbd> to close.

@@ -44,6 +44,8 @@ const SECTIONS = [
       ['y', 'YAML / JSON'],
       ['e', 'Edit'],
       ['x', 'Decode secret'],
+      ['s', 'Shell into pod'],
+      ['Shift+D', 'Debug (ephemeral container)'],
       ['Shift+F', 'Port-forward'],
       ['Shift+J', 'Jump to owner'],
       ['ctrl+d', 'Delete (confirm)'],

@@ -54,6 +54,13 @@ export const OBJECT_ACTIONS = [
   { id: 'shell', label: 'Shell', hint: 's', color: 'var(--mz-accent-2)', group: 'Actions',
     when: r => r === 'pods' || r === 'containers',
     key: e => e.key === 's' && !e.ctrlKey && !e.metaKey && !e.altKey, run: s => s.openExec() },
+  // Debug with an ephemeral container - kubectl-debug style `Shift+D` (#82). Injects a debug
+  // image (busybox/netshoot/...) sharing the target container's process namespace, then drops
+  // into a shell in it - so even a distroless pod with no shell can be inspected. (Shift+D, not
+  // Shift+S: Shift+S already sorts by status, and a keyed action would shadow it on pods.)
+  { id: 'debug', label: 'Debug (ephemeral)', hint: '⇧d', color: 'var(--mz-accent-2)', group: 'Actions',
+    when: r => r === 'pods' || r === 'containers',
+    key: e => e.key === 'D' && !e.ctrlKey && !e.metaKey && !e.altKey, run: s => s.openDebug() },
   { id: 'forward', label: 'Port-forward', hint: '⇧f', color: 'var(--mz-orange)', group: 'Actions',
     when: r => FORWARDABLE.has(r), key: e => e.key === 'F', run: s => s.openPortForward() },
   { id: 'owner', label: 'Jump to owner', hint: '⇧j', color: 'var(--mz-accent-2)', group: 'Navigate',
