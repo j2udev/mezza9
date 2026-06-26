@@ -10,7 +10,7 @@ image:
   repository: ghcr.io/j2udev/mezza9
   pullPolicy: IfNotPresent
   # Snapshot tag. Leave empty to fall back to the chart appVersion.
-  tag: "0.1.0-snapshot"
+  tag: "0.2.0"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -99,6 +99,26 @@ virtualService:
   tcp: []
   # Limit visibility of this VS to namespaces (Istio exportTo), e.g. ["."] or ["*"].
   exportTo: []
+
+# Built-in shared-token auth gate (task 97). When a token is configured (auth.token inline, or
+# auth.existingSecret), EVERY /api request and WebSocket upgrade requires that token. STRONGLY
+# recommended for any deployment reachable beyond loopback: without it - and without an external
+# auth proxy in front - anyone who can reach the Service has full cluster control (delete / edit /
+# exec / port-forward). This is ONE shared identity, not per-user RBAC. For per-user access, front
+# mezza9 with an auth proxy + TLS (oauth2-proxy, Istio RequestAuthentication) - see README "Security".
+auth:
+  # Inline token. The chart stores it in a Secret and mounts it to the pod as MEZZ_TOKEN_FILE.
+  # Prefer auth.existingSecret in production so the token is not committed to values.
+  token: ""
+  # Let the chart MINT a random token at install time (no token to invent or commit). The value
+  # is generated into the Secret and is STABLE across `helm upgrade` (it reuses the existing
+  # Secret via lookup, so upgrades don't rotate it). Retrieve it from the NOTES command after
+  # install. Ignored when auth.token or auth.existingSecret is set.
+  autoGenerate: false
+  # Reference a pre-existing Secret instead of auth.token. Must contain the key named below.
+  existingSecret: ""
+  # Key within the Secret that holds the token.
+  secretKey: token
 
 # Demo/mock mode (MEZZ_DEMO=1). Serves a fake cluster - handy for trying the UI
 # without granting real RBAC. Leave false for a real in-cluster deploy.

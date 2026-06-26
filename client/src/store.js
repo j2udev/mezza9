@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { applyTheme, getStoredThemeId } from './theme'
+import { getToken, setToken, clearToken } from './lib/auth'
 
 // Snapshot of the current view, pushed onto navStack so `[`/`]` can restore it. Drilldowns,
 // owner-jumps AND plain resource switches all record one, so history works browser-style (#79).
@@ -179,6 +180,15 @@ export const useStore = create((set, get) => ({
   clusterConnected: false,   // backend reached a live k8s cluster
   clusterError: null,        // reason the cluster is unreachable (shown by NotConnected)
 
+  // Auth gate (task 97). authChecked = boot probe finished; authRequired = the server has a
+  // token gate; authed = we hold a valid token (or there is no gate). authError = last login
+  // failure message. Until authed, useWS stays disconnected and App renders the login screen.
+  authChecked: false,
+  authRequired: false,
+  authed: false,
+  authBusy: false,
+  authError: null,
+
   // Current view
   activeResource: 'pods',
   activeNamespace: 'all',
@@ -241,6 +251,47 @@ export const useStore = create((set, get) => ({
 
   setData: (data) => set(data),
   setConnected: (v) => set({ connected: v }),
+
+  // Boot probe (task 97): ask the public /api/health whether a token is required. If not, we're
+  // authed. If so, verify any stored token; a valid one keeps us in, otherwise show the login
+  // screen. Network failure here is treated as "no gate" - NotConnected then covers the offline
+  // state, and the gate (if any) still rejects every real /api call regardless.
+  initAuth: async () => {
+    // Probe the public /api/health to learn whether a token is required. Retry a few times so a
+    // transient blip (server mid-restart) doesn't drop us into a broken authed shell; only after
+    // repeated failure do we assume no gate. Either way the server still 401s every real call, and
+    // requireReauth (below) flips us to the login screen on the first 401 if we guessed wrong.
+    let h = null
+    for (let attempt = 0; attempt < 4 && !h; attempt++) {
+      try { h = await fetch('/api/health').then(r => (r.ok ? r.json() : null)) } catch { h = null }
+      if (!h) await new Promise(r => setTimeout(r, 1000))
+    }
+    const required = !!(h && h.authRequired)
+    if (!required) { set({ authChecked: true, authRequired: false, authed: true }); return }
+    if (getToken()) {
+      const ok = await fetch('/api/auth/verify').then(r => r.ok).catch(() => false)
+      set({ authChecked: true, authRequired: true, authed: ok })
+    } else {
+      set({ authChecked: true, authRequired: true, authed: false })
+    }
+  },
+  // Store the token, verify it against the gate, and keep it only if accepted.
+  login: async (raw) => {
+    const t = (raw || '').trim()
+    if (!t) { set({ authError: 'Enter a token' }); return false }
+    set({ authBusy: true, authError: null })
+    setToken(t)
+    const ok = await fetch('/api/auth/verify').then(r => r.ok).catch(() => false)
+    if (ok) { set({ authed: true, authBusy: false, authError: null }); return true }
+    clearToken()
+    set({ authed: false, authBusy: false, authError: 'Invalid token' })
+    return false
+  },
+  logout: () => { clearToken(); set({ authed: false, authError: null }) },
+  // Fired by the fetch interceptor on any /api 401. A 401 only ever comes from the auth gate, so
+  // it is definitive proof the gate is on - mark authRequired true and drop to the login screen.
+  // This also self-corrects a boot probe that wrongly guessed "no gate" (e.g. a health-probe blip).
+  requireReauth: () => set({ authRequired: true, authed: false }),
 
   setActiveResource: (r) => set(s => ({
     activeResource: r, selectedId: null, selectedIds: new Set(), filter: '', filterActive: false, filterPinned: false,

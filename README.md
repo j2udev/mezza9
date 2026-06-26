@@ -129,6 +129,125 @@ built-in demo cluster offline (works for both `npm start` and the container):
 docker run --rm -p 3001:3001 -e MEZZ_DEMO=1 mezzanine:dev
 ```
 
+## Security
+
+> **Read this before exposing Mezzanine to anything but your own laptop.**
+
+Mezzanine talks to your cluster with the kubeconfig or in-cluster ServiceAccount
+it is given, and the UI can delete, edit (apply), exec into pods, port-forward,
+and roll back Helm releases. By default there is **no authentication**: anyone
+who can reach the port has that same full control of the cluster. On loopback
+(`localhost`) that is fine. Anywhere else, you must put a gate in front of it.
+
+There are two supported ways to do that.
+
+### 1. Built-in shared-token gate (`MEZZ_TOKEN`)
+
+Set `MEZZ_TOKEN` to any secret string and Mezzanine requires it on **every**
+`/api` request and on both WebSocket upgrades (the data stream and the pod
+shell). The browser shows a login screen; the token is then stored locally and
+sent automatically.
+
+```bash
+# Local / container
+MEZZ_TOKEN="$(openssl rand -hex 32)" npm start
+docker run --rm -p 3001:3001 -e MEZZ_TOKEN="a-long-random-string" mezzanine:dev
+
+# Or let the server mint one for you and print it (Jupyter-style). The startup log
+# shows the token and a one-click URL (http://localhost:3001/?token=...) that logs
+# you straight in. The token changes on every restart.
+MEZZ_TOKEN=auto npm start
+
+# Read the token from a file instead (e.g. a mounted Kubernetes Secret). When
+# MEZZ_TOKEN_FILE is set it takes precedence and any MEZZ_TOKEN env var is ignored.
+MEZZ_TOKEN_FILE=/etc/mezza9/auth/token npm start
+```
+
+Clients can present the token three ways: `Authorization: Bearer <token>`, HTTP
+Basic auth with the token as the **password** (`curl -u any-username:<token>`;
+`curl -u <token>:` also works), or a `?token=` query parameter (used by the
+browser for the WebSocket, which cannot send headers). The server compares
+tokens in constant time.
+
+> If a token is **configured but resolves empty** - an unreadable Secret mount,
+> the wrong Secret key, or a blank value - the server refuses to start rather
+> than silently run unauthenticated. To run with no gate, leave the variable
+> unset entirely.
+
+This is a single **shared** identity - everyone who has the token is treated the
+same and acts as the one kubeconfig/ServiceAccount. It is the right size for a
+solo operator or a small trusted team. It is **not** per-user access control.
+
+> When no token is set, the server logs a loud warning at startup. Keep the bind
+> on loopback (`127.0.0.1`) until a token or a proxy is in place.
+
+### 2. Front it with an auth proxy + TLS (recommended for teams)
+
+For real multi-user access - where each person logs in with their own identity
+and you want encryption in transit - run Mezzanine behind a dedicated
+authenticating reverse proxy and terminate TLS there:
+
+- **[oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy)** in front of
+  the Service / Ingress, wired to your identity provider (Google, Okta, Azure
+  AD, GitHub, any OIDC). The proxy authenticates the user and only then forwards
+  to Mezzanine.
+- **Istio `RequestAuthentication` + `AuthorizationPolicy`** if you run a mesh:
+  validate a JWT at the sidecar and deny unauthenticated requests before they
+  reach the pod.
+- Terminate **TLS** at the Ingress / gateway / proxy. Never serve an
+  unauthenticated dashboard over plain HTTP off-host.
+
+You can combine both: set `MEZZ_TOKEN` *and* front it with a proxy for defense
+in depth.
+
+> **Per-user Kubernetes RBAC** (each person limited by their own cluster
+> permissions via impersonation / OIDC) is not built in yet - it is the planned
+> next step. Until then, the proxy path above is how you get per-user login.
+
+### Helm chart
+
+The chart exposes the token gate directly. It stores the token in a Secret,
+mounts it into the pod as a file, and points `MEZZ_TOKEN_FILE` at it (so the
+token never appears in the pod's env or `kubectl describe`). Configure it via
+`auth.*`, not an `extraEnv: MEZZ_TOKEN` - the mounted file takes precedence.
+
+```yaml
+# values.yaml
+auth:
+  # Easiest: let the chart mint a token for you (printed in the install NOTES).
+  autoGenerate: true
+  # Or pin your own:
+  token: "a-long-random-string"   # stored in a generated Secret, mounted as a file
+  # Or reference your own Secret instead (its key must equal secretKey below):
+  existingSecret: "mezza9-token"
+  secretKey: token
+```
+
+```bash
+# Install with an auto-generated token, then read it from the printed NOTES:
+helm install mezza9 ./charts/mezza9 --set auth.autoGenerate=true
+
+# Fetch the generated token anytime:
+kubectl get secret -n <namespace> mezza9-auth \
+  -o jsonpath="{.data.token}" | base64 -d ; echo
+```
+
+`autoGenerate` is **stable across `helm upgrade`** - the chart reads the existing
+Secret back (via `lookup`) and reuses it, so upgrades don't rotate the token.
+(`helm template` / `--dry-run` can't read the cluster, so they show a throwaway
+value; the real install/upgrade is what persists.)
+
+If you point `existingSecret` at a Secret whose key is **not** `secretKey`, the
+mounted file is missing and the pod refuses to start (fail closed) rather than
+coming up unauthenticated - so a key mismatch surfaces as a crash-loop, not a
+silent open door.
+
+Also note `rbac.readOnly`: it defaults to `false`, which grants the write verbs
+the UI needs (delete / edit / port-forward / rollback) - effectively
+cluster-admin for an app with no built-in per-user auth. Set it to `true` for a
+strictly read-only viewer, and never expose a `readOnly: false` install without
+auth **and** TLS in front.
+
 ## Keyboard navigation
 
 The full cheatsheet is always one keypress away — hit `?` in the app. The

@@ -14,6 +14,30 @@ Mezzanine has been deployed. 🎭
 ℹ  RBAC is READ-ONLY. Delete / edit / port-forward / helm rollback will be denied.
 {{- end }}
 
+{{- if include "mezza9.authEnabled" . }}
+
+🔒 Authentication is ENABLED - a shared token is required to log in.
+{{- if .Values.auth.token }}
+
+   Token (from values):
+     {{ .Values.auth.token }}
+{{- else if .Values.auth.existingSecret }}
+
+   Token comes from your existing Secret "{{ .Values.auth.existingSecret }}" (key: {{ .Values.auth.secretKey }}).
+{{- else }}
+
+   A token was auto-generated. Retrieve it with:
+     kubectl get secret -n {{ .Release.Namespace }} {{ include "mezza9.authSecretName" . }} -o jsonpath="{.data.{{ .Values.auth.secretKey }}}" | base64 -d ; echo
+{{- end }}
+
+   Log in by pasting it into the login screen, or append ?token=<token> to the URL.
+{{- else }}
+
+⚠  Authentication is DISABLED - anyone who can reach the Service has full cluster control.
+   Turn it on with auth.autoGenerate=true (or auth.token / auth.existingSecret), and never
+   expose the dashboard without auth AND TLS. See the chart README "Security".
+{{- end }}
+
 Reach the dashboard:
 {{- if .Values.ingress.enabled }}
 {{- range .Values.ingress.hosts }}
