@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { alpha } from '../theme'
 import { useStore } from '../store'
+import { withToken } from '../lib/auth'
 
 const ACCENT = 'var(--mz-accent-2)'
 
@@ -86,7 +87,9 @@ export function ExecModal() {
       cols: String(term.cols || 80), rows: String(term.rows || 24),
     })
     if (container) params.set('container', container)
-    const ws = new WebSocket(`${proto}//${window.location.host}/ws/exec?${params}`)
+    // withToken adds the shared token (task 97) for the /ws/exec upgrade - no header channel
+    // on a browser WebSocket, so it rides in the query string.
+    const ws = new WebSocket(withToken(`${proto}//${window.location.host}/ws/exec?${params}`))
     ws.binaryType = 'arraybuffer'
 
     const enc = new TextEncoder()

@@ -38,7 +38,7 @@ export function LoadingScreen() {
           mezza9
         </div>
         <div className="text-xs tracking-widest" style={{ color: 'var(--mz-accent-2)' }}>
-          THE BEST SEAT IN THE THEATER
+          THE BEST SEAT IN THE HOUSE
         </div>
       </div>
 

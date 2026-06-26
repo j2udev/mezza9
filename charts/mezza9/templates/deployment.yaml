@@ -1,3 +1,11 @@
+{{- /* Auth config validation (task 97): fail the install early on misconfig rather than letting
+       the pod come up unauthenticated or crash-loop opaquely. */ -}}
+{{- if .Values.auth.token }}
+{{- if not (trim .Values.auth.token) }}{{ fail "auth.token is set but blank - unset it to run without the gate, or give it a real value" }}{{ end }}
+{{- end }}
+{{- if include "mezza9.authEnabled" . }}
+{{- if not (regexMatch "^[-._a-zA-Z0-9]+$" .Values.auth.secretKey) }}{{ fail "auth.secretKey must match [-._a-zA-Z0-9]+ (it is used as both a Secret key and a file path)" }}{{ end }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,9 +57,21 @@ spec:
             - name: MEZZ_DEMO
               value: "1"
             {{- end }}
+            {{- if include "mezza9.authEnabled" . }}
+            # Built-in shared-token gate (task 97). The token is mounted from a Secret as a file
+            # so it never appears in the pod's env / `kubectl describe`.
+            - name: MEZZ_TOKEN_FILE
+              value: /etc/mezza9/auth/{{ .Values.auth.secretKey }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- if include "mezza9.authEnabled" . }}
+          volumeMounts:
+            - name: auth
+              mountPath: /etc/mezza9/auth
+              readOnly: true
+          {{- end }}
           {{- with .Values.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -75,4 +95,10 @@ spec:
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if include "mezza9.authEnabled" . }}
+      volumes:
+        - name: auth
+          secret:
+            secretName: {{ include "mezza9.authSecretName" . }}
       {{- end }}

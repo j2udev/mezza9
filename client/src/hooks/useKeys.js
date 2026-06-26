@@ -19,6 +19,10 @@ export function useKeys() {
     function onKey(e) {
       const s = useStore.getState()
 
+      // Auth gate (task 97): the login screen owns the keyboard (typing a token must not trigger
+      // shortcuts). The app tree isn't even mounted while it's up, so there's nothing to drive.
+      if (s.authRequired && !s.authed) return
+
       if (s.modal) {
         if (e.key === 'Escape') s.closeModal()
         return

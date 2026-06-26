@@ -66,3 +66,39 @@ Image reference (tag falls back to chart appVersion).
 {{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
 {{- printf "%s:%s" .Values.image.repository $tag -}}
 {{- end }}
+
+{{/*
+Auth gate (task 97). authEnabled = "true" when a token gate is configured (inline token, an
+existing Secret, or autoGenerate); empty (falsy) otherwise.
+*/}}
+{{- define "mezza9.authEnabled" -}}
+{{- if or .Values.auth.token .Values.auth.existingSecret .Values.auth.autoGenerate -}}true{{- end -}}
+{{- end }}
+
+{{/*
+Name of the Secret holding the auth token: the user's existingSecret, else the generated one.
+*/}}
+{{- define "mezza9.authSecretName" -}}
+{{- .Values.auth.existingSecret | default (printf "%s-auth" (include "mezza9.fullname" .)) -}}
+{{- end }}
+
+{{/*
+Resolve the auth token VALUE for the generated Secret. Used ONLY by secret.yaml (the single
+source of truth). Priority: inline auth.token, else autoGenerate -> reuse the existing Secret's
+value if one is already in the cluster (so `helm upgrade` does NOT rotate the token), else mint a
+fresh random one. (NOTES.txt deliberately never calls this - on a first install each template
+invocation of randAlphaNum would differ, so NOTES prints a kubectl retrieval command instead.)
+*/}}
+{{- define "mezza9.authToken" -}}
+{{- if .Values.auth.token -}}
+{{- .Values.auth.token -}}
+{{- else if .Values.auth.autoGenerate -}}
+{{- $name := printf "%s-auth" (include "mezza9.fullname" .) -}}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $name -}}
+{{- if and $existing (index ($existing.data | default dict) .Values.auth.secretKey) -}}
+{{- index $existing.data .Values.auth.secretKey | b64dec -}}
+{{- else -}}
+{{- randAlphaNum 32 -}}
+{{- end -}}
+{{- end -}}
+{{- end }}

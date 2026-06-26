@@ -1,19 +1,27 @@
 import { useEffect } from 'react'
 import { useStore } from '../store'
+import { withToken } from '../lib/auth'
 
 function getWsUrl() {
-  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL
+  // withToken appends the shared token (task 97) - browsers can't set headers on a WebSocket, so
+  // the upgrade carries it in the query string. No-op when auth is off / not logged in. Applied to
+  // the VITE_WS_URL override too, else a custom-backend build would connect token-less and 401.
+  if (import.meta.env.VITE_WS_URL) return withToken(import.meta.env.VITE_WS_URL)
   // Always connect through the same host - Vite proxies /ws to the backend.
   // This works whether accessed via localhost, devcontainer forwarding, or tunnel.
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${window.location.host}/ws`
+  return withToken(`${proto}//${window.location.host}/ws`)
 }
 
 export function useWS() {
   const setData = useStore(s => s.setData)
   const setConnected = useStore(s => s.setConnected)
+  // Stay disconnected until authenticated (task 97): no WS, no polling, no /api/data fetch
+  // before a valid token is held. Re-runs when authed flips, so login connects immediately.
+  const authed = useStore(s => s.authed)
 
   useEffect(() => {
+    if (!authed) return
     let ws
     let retryTimer
     let pollTimer
@@ -65,5 +73,5 @@ export function useWS() {
       stopPolling()
       ws?.close()
     }
-  }, [])
+  }, [authed])
 }
