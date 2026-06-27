@@ -48,6 +48,7 @@ const SECTIONS = [
       [':whoami', 'My access review (kubectl auth can-i)'],
       ['s', 'Shell into pod'],
       ['Shift+D', 'Debug (ephemeral container)'],
+      ['Shift+C', 'Copy files (kubectl cp)'],
       ['Shift+F', 'Port-forward'],
       ['Shift+J', 'Jump to owner'],
       ['ctrl+d', 'Delete (confirm)'],

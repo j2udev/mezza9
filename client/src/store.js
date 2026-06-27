@@ -247,6 +247,7 @@ export const useStore = create((set, get) => ({
   pfModal: null,         // { item, resource } when the port-forward dialog is open
   execModal: null,       // { namespace, pod, container, label } when the shell terminal is open (#81)
   debugModal: null,      // { namespace, pod, target, containers, label } when the debug dialog is open (#82)
+  cpModal: null,         // { namespace, pod, container, containers, label } when the copy dialog is open (#108)
   deleteConfirm: null,   // { item, resource } when ctrl+d confirm is pending
 
   setData: (data) => set(data),
@@ -704,6 +705,23 @@ export const useStore = create((set, get) => ({
     if (!e) return
     set({ execModal: null, debugModal: { namespace: e.namespace, pod: e.pod, target: e.container, containers: e.container ? [e.container] : [], label: e.label } })
   },
+
+  // Copy files to/from a pod or container - kubectl cp style (#108). Mirrors openExec/openDebug:
+  // a container-drilldown row carries { pod, name(=container) }; a pod row carries containers[]
+  // and defaults to the first container (switchable in the dialog).
+  openCp: () => {
+    const s = get()
+    if (!s.selectedId) return
+    const item = s.getItems().find(i => i.id === s.selectedId)
+    if (!item) return
+    if (s.activeResource === 'containers') {
+      set({ cpModal: { namespace: item.namespace, pod: item.pod, container: item.name, containers: [item.name], label: `${item.pod} / ${item.name}` } })
+    } else if (s.activeResource === 'pods') {
+      const containers = (item.containers || []).map(c => typeof c === 'string' ? c : c?.name).filter(Boolean)
+      set({ cpModal: { namespace: item.namespace, pod: item.name, container: containers[0] || '', containers, label: item.name } })
+    }
+  },
+  closeCp: () => set({ cpModal: null }),
 
   // Jump to the controller that owns the selected item (shift+j). Pushes a nav frame
   // so `[` returns. No-op if the item has no owner or the owner isn't in current data.

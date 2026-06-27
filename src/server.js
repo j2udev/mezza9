@@ -4,15 +4,24 @@ import { createServer } from 'http'
 import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, createReadStream } from 'fs'
+import { mkdtemp, rm, writeFile, stat } from 'fs/promises'
+import { tmpdir } from 'os'
 import { execFile, spawn } from 'child_process'
 import { PassThrough, Writable } from 'stream'
+import { pipeline } from 'stream/promises'
 import { promisify } from 'util'
 import { createHash, timingSafeEqual, randomBytes } from 'crypto'
 import cors from 'cors'
 import yaml from 'js-yaml'
 import { fetchResources, fetchCrdInstances, getExec, addEphemeralDebugContainer, fetchPolicy, whoAmI } from './k8s.js'
 import { getMockLogs, getMockDescribe, getMockYaml, getMockCrdResources, getMockHelmValues, getMockHelmAllValues, getMockHelmManifest, getMockHelmHistory, getMockHelmNotes, getMockPolicy, getMockWhoAmI } from './mock.js'
+
+// archiver (7.x) is CommonJS; load it via createRequire since this module is ESM. It streams
+// directory/file downloads as tar / tar.gz / zip entirely in-process (task 108), so no host
+// tar/zip binary is needed - the production image is node:22-slim.
+const require = createRequire(import.meta.url)
+const archiver = require('archiver')
 
 // kubectl/helm are run with execFile (NOT exec): execFile invokes the binary directly
 // without a shell, so a crafted resource/name/namespace in a URL can never inject shell
@@ -35,6 +44,41 @@ const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/
 const validId = (s) => typeof s === 'string' && s.length > 0 && s.length <= 253 && ID_RE.test(s)
 const validTarget = (resource, namespace, name) =>
   validId(resource) && validId(name) && (namespace === '_' || validId(namespace))
+
+// File paths for `kubectl cp` (task 108) are not Kubernetes identifiers - they carry '/', '.',
+// spaces, etc. - so validId is too strict. Reject only what breaks the no-shell execFile contract
+// or is obviously bogus: empty, control chars (NUL/newline could smuggle a second arg or corrupt
+// the stream), or a leading '-' (argument injection - though the in-container path is embedded in
+// `<ns>/<pod>:<path>` so it can never be read as a flag). Paths inside the container are the user's
+// prerogative; they already have exec.
+const validPath = (p) => typeof p === 'string' && p.length > 0 && p.length <= 4096 &&
+  ![...p].some(c => c.charCodeAt(0) < 32) && !p.startsWith('-')
+// A safe LOCAL filename derived from a user-supplied name: basename only, no directory traversal.
+// We control the server temp path, so an uploaded "name" must not escape it.
+const safeBase = (n) => {
+  const b = String(n || '').replace(/\\/g, '/').replace(/\/+$/, '').split('/').pop()
+  return (!b || b === '.' || b === '..') ? 'file' : b
+}
+
+// Download archive formats (task 108). 'auto' = stream a single file as-is, archive a directory as
+// tar. An explicit tar/tgz/zip archives either a file or a directory in that format - done in
+// process via archiver, so no host tar/zip binary is required.
+const ARCHIVE_FORMATS = {
+  tar: { kind: 'tar', opts: {},                     ext: 'tar', mime: 'application/x-tar' },
+  tgz: { kind: 'tar', opts: { gzip: true },         ext: 'tgz', mime: 'application/gzip' },
+  zip: { kind: 'zip', opts: { zlib: { level: 9 } }, ext: 'zip', mime: 'application/zip' },
+}
+// Append the format extension unless the chosen name already carries it ("backup" -> "backup.zip",
+// "backup.zip" -> "backup.zip"; tgz also accepts a typed .tar.gz).
+function withExt(name, ext) {
+  const lower = name.toLowerCase()
+  if (lower.endsWith(`.${ext}`)) return name
+  if (ext === 'tgz' && lower.endsWith('.tar.gz')) return name
+  return `${name}.${ext}`
+}
+// Content-Disposition value with a filename safe for the quoted-string form (control chars are
+// already rejected upstream by validPath / safeBase, so this only neutralizes quotes/backslashes).
+const contentDisposition = (name) => `attachment; filename="${name.replace(/["\\\r\n]/g, '_')}"`
 
 // ── Auth gate (task 97) ──────────────────────────────────────────────────────
 // Optional shared-token gate. Set MEZZ_TOKEN (or MEZZ_TOKEN_FILE pointing at a file, e.g. a
@@ -320,6 +364,122 @@ app.post('/api/debug/:namespace/:pod', async (req, res) => {
     res.json(out)
   } catch (err) {
     res.status(500).json({ error: err.message })
+  }
+})
+
+// ── File copy: kubectl cp to/from a container (task 108) ─────────────────────
+// k9s/kubectl-style file transfer. The "local" side is the BROWSER (not the server filesystem):
+// download streams a container file to the user's browser; upload pushes a browser-picked file in.
+// Both lean on the real `kubectl cp` (execFile, no shell) so we inherit its battle-tested tar
+// plumbing (it execs `tar` inside the container, so the target image must have tar). The server
+// only stages bytes in a per-request temp dir, always cleaned up. Live cluster only.
+
+// GET /api/cp/:namespace/:pod/:container?path=<remotePath>&name=<downloadName>&format=<auto|tar|tgz|zip>
+// Copies <remotePath> out of the container into a temp dir, then streams it to the browser.
+//   format=auto (default): a single file streams as-is; a directory is archived as tar.
+//   format=tar|tgz|zip:    a file OR directory is archived in that format (in-process via archiver).
+// name overrides the download filename (the format extension is appended for archives).
+app.get('/api/cp/:namespace/:pod/:container', async (req, res) => {
+  const { namespace, pod, container } = req.params
+  const remotePath = req.query.path
+  const format = String(req.query.format || 'auto').toLowerCase()
+  if (latest.demoMode) return res.status(400).json({ error: 'Copy is not available in demo mode.' })
+  if (!validId(namespace) || !validId(pod) || !validId(container)) {
+    return res.status(400).json({ error: 'Invalid namespace, pod, or container' })
+  }
+  if (!validPath(remotePath)) return res.status(400).json({ error: 'Invalid or missing path' })
+  if (format !== 'auto' && !ARCHIVE_FORMATS[format]) {
+    return res.status(400).json({ error: `Unsupported format: ${format}` })
+  }
+
+  const base = safeBase(remotePath)
+  // The download filename: the user-supplied name (sanitized to a basename) or the path's basename.
+  const downloadBase = String(req.query.name || '').trim() ? safeBase(req.query.name) : base
+  let tmp
+  try {
+    tmp = await mkdtemp(join(tmpdir(), 'mezz-cp-'))
+    const dest = join(tmp, base)
+    // kubectl cp <ns>/<pod>:<path> <dest> -c <container>. --retries rides out transient stream
+    // resets on large copies. maxBuffer is for kubectl's own stdout chatter, not the file (kubectl
+    // writes the file to <dest> directly), so a small cap is plenty.
+    await execFileAsync(
+      KUBECTL, ['cp', `${namespace}/${pod}:${remotePath}`, dest, '-c', container, '--retries=3'],
+      { timeout: 120000, maxBuffer: 4 * 1024 * 1024 }
+    )
+    // kubectl cp exits 0 even when the in-container path does not exist (the internal `tar` fails
+    // but the exit status is not propagated), so a missing dest = the path was not found. Report
+    // that cleanly instead of leaking the server temp path in a raw ENOENT.
+    let st
+    try { st = await stat(dest) }
+    catch { return res.status(404).json({ error: `Path not found in container: ${remotePath}` }) }
+    res.setHeader('Cache-Control', 'no-store')
+
+    // Single file, no archiving requested: stream the raw bytes with the chosen name. pipeline()
+    // destroys the read stream (closing its fd) on success, read error, OR client abort, so neither
+    // the descriptor nor the temp dir (cleaned in finally) leaks.
+    if (format === 'auto' && !st.isDirectory()) {
+      res.setHeader('Content-Type', 'application/octet-stream')
+      res.setHeader('Content-Disposition', contentDisposition(downloadBase))
+      res.setHeader('Content-Length', String(st.size))
+      try { await pipeline(createReadStream(dest), res) }
+      catch { /* client aborted or read error - pipeline already destroyed both streams */ }
+      return
+    }
+
+    // Archive a directory (auto -> tar) or any path in an explicit format. archiver streams the
+    // archive; pipeline() resolves/rejects (and tears both sides down) on completion or client abort.
+    const spec = format === 'auto' ? ARCHIVE_FORMATS.tar : ARCHIVE_FORMATS[format]
+    res.setHeader('Content-Type', spec.mime)
+    res.setHeader('Content-Disposition', contentDisposition(withExt(downloadBase, spec.ext)))
+    const archive = archiver(spec.kind, spec.opts)
+    archive.on('error', () => { if (!res.headersSent) res.status(500).end(); else res.destroy() })
+    // The copied entry keeps its original basename inside the archive (e.g. zip of "src/" -> src/...).
+    if (st.isDirectory()) archive.directory(dest, base)
+    else archive.file(dest, { name: base })
+    try {
+      const piped = pipeline(archive, res)
+      archive.finalize()
+      await piped
+    } catch { /* client aborted or archive error - streams already torn down */ }
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ error: err.message })
+  } finally {
+    if (tmp) rm(tmp, { recursive: true, force: true }).catch(() => {})
+  }
+})
+
+// POST /api/cp/:namespace/:pod/:container?path=<remoteDir>&name=<filename>   (body = raw file bytes)
+// Stage the uploaded bytes in a temp file, then `kubectl cp` it to <remoteDir>/<filename> in the
+// container. The browser can't tar, so it POSTs raw octet-stream; safeBase() keeps the filename
+// from escaping the temp dir.
+app.post('/api/cp/:namespace/:pod/:container', express.raw({ type: '*/*', limit: '200mb' }), async (req, res) => {
+  const { namespace, pod, container } = req.params
+  const destDir = req.query.path
+  const name = safeBase(req.query.name)
+  if (latest.demoMode) return res.status(400).json({ ok: false, error: 'Copy is not available in demo mode.' })
+  if (!validId(namespace) || !validId(pod) || !validId(container)) {
+    return res.status(400).json({ ok: false, error: 'Invalid namespace, pod, or container' })
+  }
+  if (!validPath(destDir)) return res.status(400).json({ ok: false, error: 'Invalid or missing destination path' })
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+    return res.status(400).json({ ok: false, error: 'No file content' })
+  }
+
+  let tmp
+  try {
+    tmp = await mkdtemp(join(tmpdir(), 'mezz-cp-'))
+    const src = join(tmp, name)
+    await writeFile(src, req.body)
+    const remote = destDir.replace(/\/+$/, '') + '/' + name   // join dir + filename, no shell
+    const { stdout, stderr } = await execFileAsync(
+      KUBECTL, ['cp', src, `${namespace}/${pod}:${remote}`, '-c', container, '--retries=3'],
+      { timeout: 120000, maxBuffer: 4 * 1024 * 1024 }
+    )
+    res.json({ ok: true, output: (stdout || stderr || '').trim(), path: remote })
+  } catch (err) {
+    res.json({ ok: false, error: err.message })
+  } finally {
+    if (tmp) rm(tmp, { recursive: true, force: true }).catch(() => {})
   }
 })
 

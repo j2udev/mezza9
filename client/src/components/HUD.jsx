@@ -6,6 +6,7 @@ import { ActionModal } from './ActionModal'
 import { PortForwardModal } from './PortForwardModal'
 import { ExecModal } from './ExecModal'
 import { DebugModal } from './DebugModal'
+import { CopyModal } from './CopyModal'
 import { HelpModal } from './HelpModal'
 import { ActionMenu } from './ActionMenu'
 
@@ -507,6 +508,9 @@ export function HUD({ panelWidth = 288 }) {
 
       {/* ── Debug ephemeral container dialog (#82) ───────────────── */}
       <DebugModal />
+
+      {/* ── Copy files dialog (kubectl cp, #108) ─────────────────── */}
+      <CopyModal />
 
       {/* ── Help modal ───────────────────────────────────────────── */}
       <HelpModal />

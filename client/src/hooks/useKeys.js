@@ -41,6 +41,9 @@ export function useKeys() {
       // The debug dialog (#82) has its own image input + Esc handling; yield the keyboard.
       if (s.debugModal) { if (e.key === 'Escape') s.closeDebug(); return }
 
+      // The copy dialog (#108) has its own path / file inputs; yield the keyboard, handle Esc.
+      if (s.cpModal) { if (e.key === 'Escape') s.closeCp(); return }
+
       if (s.helpOpen) {
         if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); s.setHelpOpen(false) }
         return

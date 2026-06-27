@@ -65,6 +65,12 @@ export const OBJECT_ACTIONS = [
   { id: 'debug', label: 'Debug (ephemeral)', hint: '⇧d', color: 'var(--mz-accent-2)', group: 'Actions',
     when: r => r === 'pods' || r === 'containers',
     key: e => e.key === 'D' && !e.ctrlKey && !e.metaKey && !e.altKey, run: s => s.openDebug() },
+  // Copy files to/from a pod / container - kubectl cp style `Shift+C` (#108). Like shell/debug it
+  // applies to a pod (defaults to its first container) and to a single container from the pod
+  // drilldown. The dialog downloads a container file to the browser or uploads a picked file in.
+  { id: 'copy', label: 'Copy files', hint: '⇧c', color: 'var(--mz-accent-2)', group: 'Actions',
+    when: r => r === 'pods' || r === 'containers',
+    key: e => e.key === 'C' && !e.ctrlKey && !e.metaKey && !e.altKey, run: s => s.openCp() },
   { id: 'forward', label: 'Port-forward', hint: '⇧f', color: 'var(--mz-orange)', group: 'Actions',
     when: r => FORWARDABLE.has(r), key: e => e.key === 'F', run: s => s.openPortForward() },
   { id: 'owner', label: 'Jump to owner', hint: '⇧j', color: 'var(--mz-accent-2)', group: 'Navigate',
