@@ -17,8 +17,12 @@ set -e
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO/client"
 
-NODE=$(find /nix/store -name "node" -type f 2>/dev/null | grep -v ".drv" | head -1)
-[ -z "$NODE" ] && NODE=$(which node 2>/dev/null || true)
+# Resolve node WITHOUT scanning all of /nix/store - that walk spikes IO on the linuxkit VM and can
+# itself trigger a devcontainer reconnect (the very thing we build carefully to avoid). Prefer the
+# devbox-provided symlink, then PATH, and only fall back to a store scan as a last resort.
+NODE="$REPO/.devbox/nix/profile/default/bin/node"
+[ -x "$NODE" ] || NODE=$(command -v node 2>/dev/null || true)
+[ -z "$NODE" ] && NODE=$(find /nix/store -name "node" -type f 2>/dev/null | grep -v ".drv" | head -1)
 [ -z "$NODE" ] && { echo "Error: node not found."; exit 1; }
 
 CORES=$(nproc 2>/dev/null || echo 4)

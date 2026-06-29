@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
-NODE=$(find /nix/store -name "node" -type f 2>/dev/null | grep -v ".drv" | head -1)
-[ -z "$NODE" ] && NODE=$(which node 2>/dev/null || true)
-[ -z "$NODE" ] && { echo "Error: node not found."; exit 1; }
-
 REPO="$(cd "$(dirname "$0")" && pwd)"
+
+# Resolve node WITHOUT scanning all of /nix/store - that walk spikes IO on the linuxkit VM and can
+# itself trigger a devcontainer reconnect. Prefer the devbox-provided symlink, then PATH, and only
+# fall back to a store scan as a last resort.
+NODE="$REPO/.devbox/nix/profile/default/bin/node"
+[ -x "$NODE" ] || NODE=$(command -v node 2>/dev/null || true)
+[ -z "$NODE" ] && NODE=$(find /nix/store -name "node" -type f 2>/dev/null | grep -v ".drv" | head -1)
+[ -z "$NODE" ] && { echo "Error: node not found."; exit 1; }
 
 echo ""
 echo "  Mezzanine"
