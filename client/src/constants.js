@@ -15,9 +15,13 @@ export function statusColor(status) {
   if (!status) return tok('neutral')
   const mapped = ACTIVE.status[status]
   if (mapped) return tok(mapped)
-  if (/BackOff|Err|Error|Fail|Evicted|OOM|Lost|Unreachable|CrashLoop/i.test(status)) return tok('danger')
-  if (/Creating|Pending|Init|Waiting|Progress|Terminating|NotReady|Scaling/i.test(status)) return tok('warn')
-  if (/Completed|Succeeded|Bound|Ready|Running|Active|Available|Deployed/i.test(status)) return tok('ok')
+  // ...Terminated covers EC2 'terminated' (distinct from k8s 'Terminating', which is warn below).
+  if (/BackOff|Err|Error|Fail|Evicted|OOM|Lost|Unreachable|CrashLoop|Terminated/i.test(status)) return tok('danger')
+  // ...Stopping/ShuttingDown EC2; Modifying RDS; Unassociated EIP (idle, costs money). Checked
+  // before the ok line so 'Unassociated' wins over the 'Associated' substring there.
+  if (/Creating|Pending|Init|Waiting|Progress|Terminating|NotReady|Scaling|Stopping|ShuttingDown|Modifying|Unassociated/i.test(status)) return tok('warn')
+  // ...In-use (EBS attached) and Associated (EIP attached) are healthy AWS states.
+  if (/Completed|Succeeded|Bound|Ready|Running|Active|Available|Deployed|In-use|Associated/i.test(status)) return tok('ok')
   return tok('neutral')
 }
 

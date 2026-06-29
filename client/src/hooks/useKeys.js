@@ -44,6 +44,9 @@ export function useKeys() {
       // The copy dialog (#108) has its own path / file inputs; yield the keyboard, handle Esc.
       if (s.cpModal) { if (e.key === 'Escape') s.closeCp(); return }
 
+      // The S3 copy dialog (module #2) has its own inputs; yield the keyboard, handle Esc.
+      if (s.s3CpModal) { if (e.key === 'Escape') s.closeS3Cp(); return }
+
       if (s.helpOpen) {
         if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); s.setHelpOpen(false) }
         return
@@ -225,6 +228,14 @@ export function useKeys() {
           // RBAC objects: Enter opens the k9s-style policy / rules view (task 94)
           if (RBAC_RESOURCES.has(s.activeResource)) {
             s.openModal('policy')
+            break
+          }
+
+          // S3 buckets: Enter drills into the bucket's objects. Async + fetched (not embedded), so
+          // it can't use getDrillTarget - handled before the generic DRILLABLE path (module #2).
+          if (s.activeResource === 's3buckets') {
+            const item = s.getFilteredItems().find(i => i.id === s.selectedId)
+            if (item) s.drillIntoBucket(item)
             break
           }
 

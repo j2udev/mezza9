@@ -16,6 +16,7 @@ import cors from 'cors'
 import yaml from 'js-yaml'
 import { fetchResources, fetchCrdInstances, getExec, addEphemeralDebugContainer, fetchPolicy, whoAmI } from './k8s.js'
 import { getMockLogs, getMockDescribe, getMockYaml, getMockCrdResources, getMockHelmValues, getMockHelmAllValues, getMockHelmManifest, getMockHelmHistory, getMockHelmNotes, getMockPolicy, getMockWhoAmI } from './mock.js'
+import { fetchAwsResources, fetchS3Objects, ec2Action, s3GetObject, s3PutObject, RESOURCE_KEYS as AWS_RESOURCE_KEYS } from './aws.js'
 
 // archiver (7.x) is CommonJS; load it via createRequire since this module is ESM. It streams
 // directory/file downloads as tar / tar.gz / zip entirely in-process (task 108), so no host
@@ -196,6 +197,14 @@ const wss = new WebSocketServer({
   },
 })
 
+// Which provider this mezza9 deployment serves (module #2). Chosen at DEPLOY time, not toggled in
+// the UI - a given deployment IS a k8s dashboard OR an AWS dashboard. refresh() polls only this
+// provider; the client reads it from /api/health to render the right shell. (See modules.md.)
+const PROVIDER = (process.env.MEZZ_PROVIDER || 'k8s').toLowerCase() === 'aws' ? 'aws' : 'k8s'
+// AWS slice keys carried across refreshes so the payload shape stays stable regardless of provider.
+// Resource keys come from the aws module's registry (auto-scales as services are added) + the meta.
+const AWS_KEYS = [...AWS_RESOURCE_KEYS, 'awsConnected', 'awsDemo', 'awsRegion', 'awsIdentity', 'awsError']
+
 const clients = new Set()
 let latest = {
   pods: [], deployments: [], replicasets: [], services: [],
@@ -207,19 +216,48 @@ let latest = {
   nodes: [], namespaces: [], events: [], crds: [], helmreleases: [],
   portforwards: [],
   demoMode: false, clusterConnected: false, clusterError: null,
+  // AWS provider (module #2). This deployment's provider is fixed at deploy time (MEZZ_PROVIDER);
+  // refresh() populates only the active provider's slice. AWS connection/health state is SEPARATE
+  // from the k8s flags above (a provider has its own demo/connection state) - flagged in modules.md.
+  // AWS resource arrays are seeded just below from the registry so this stays in sync automatically.
+  awsConnected: false, awsDemo: false, awsRegion: null, awsIdentity: null, awsError: null,
+  provider: PROVIDER,
 }
+for (const k of AWS_RESOURCE_KEYS) latest[k] = []
 
 let refreshing = false
 async function refresh() {
   if (refreshing) return
   refreshing = true
   try {
-    const data = await Promise.race([
-      fetchResources(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('fetch timeout after 15s')), 15000)),
-    ])
-    latest = data
-    latest.portforwards = pfList()   // surface live forwards in the data stream (#53)
+    let data
+    if (PROVIDER === 'aws') {
+      // AWS deployment: poll AWS only, never touch k8s (k8s keys stay empty). Start from `latest`
+      // so the empty k8s slice + prior AWS data are retained, then refresh the AWS slice in its own
+      // timeout race. Keep last-good AWS data if the fetch fails so the tables don't blank.
+      data = { ...latest }
+      const prevAws = {}; for (const k of AWS_KEYS) prevAws[k] = latest[k]
+      try {
+        Object.assign(data, await Promise.race([
+          fetchAwsResources(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('aws fetch timeout after 15s')), 15000)),
+        ]))
+      } catch (err) {
+        Object.assign(data, prevAws)
+        console.warn('aws refresh skipped:', err.message)
+      }
+    } else {
+      // k8s deployment (default): poll k8s only, never touch AWS. Carry the (empty) AWS keys forward
+      // so the payload shape is stable for the client regardless of provider.
+      data = await Promise.race([
+        fetchResources(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('fetch timeout after 15s')), 15000)),
+      ])
+      for (const k of AWS_KEYS) data[k] = latest[k]
+    }
+    data.provider = PROVIDER
+    data.portforwards = pfList()   // surface live forwards in the data stream (#53)
+    latest = data                  // single atomic publish
     const msg = JSON.stringify({ type: 'update', data: latest })
     for (const ws of clients) {
       if (ws.readyState === 1) ws.send(msg)
@@ -484,7 +522,7 @@ app.post('/api/cp/:namespace/:pod/:container', express.raw({ type: '*/*', limit:
 })
 
 // Public: probes + the client's "do I need a token?" boot check. Never gated.
-app.get('/api/health', (_, res) => res.json({ ok: true, demoMode: latest.demoMode, authRequired: AUTH_ENABLED }))
+app.get('/api/health', (_, res) => res.json({ ok: true, demoMode: latest.demoMode, authRequired: AUTH_ENABLED, provider: PROVIDER }))
 // Behind the auth gate: reaching it means the supplied token was accepted (or auth is off).
 // The login screen calls this to validate a token before storing it.
 app.get('/api/auth/verify', (_, res) => res.json({ ok: true }))
@@ -908,6 +946,59 @@ app.get('/api/rbac/can-i', async (req, res) => {
   } catch (err) {
     res.json({ user: null, groups: [], namespace, rules: [], nonResourceRules: [], error: err.message })
   }
+})
+
+// ── AWS provider (module #2) ─────────────────────────────────────────────────
+// Addressed by AWS identity (region + bucket/key + instance-id) rather than namespace/name - the
+// k8s /:resource/:namespace/:name route shape can't carry `region`, so AWS gets its own routes
+// (friction: provider-specific resource addressing). All inherit the /api/* auth gate automatically.
+// Reads work in demo; writes refuse in demo (the helpers self-guard), mirroring the k8s posture.
+
+// GET objects in a bucket (the lazy Enter-drill target; s3objects is never broadcast in the stream).
+app.get('/api/aws/s3/:bucket', async (req, res) => {
+  const { bucket } = req.params
+  if (!validId(bucket)) return res.status(400).json({ error: 'Invalid bucket' })
+  res.json({ objects: await fetchS3Objects(bucket) })
+})
+
+// GET one object -> browser download. Key carries '/', so it's a query param like kubectl-cp's ?path=.
+app.get('/api/aws/s3/:bucket/object', async (req, res) => {
+  const { bucket } = req.params
+  const key = req.query.key
+  if (!validId(bucket) || !validPath(key)) return res.status(400).json({ error: 'Invalid bucket or key' })
+  const obj = await s3GetObject(bucket, key)
+  if (!obj) return res.status(404).json({ error: 'Object not found, or AWS unavailable.' })
+  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('Content-Type', obj.contentType || 'application/octet-stream')
+  res.setHeader('Content-Disposition', contentDisposition(safeBase(key)))
+  if (obj.contentLength != null) res.setHeader('Content-Length', String(obj.contentLength))
+  if (obj.body && typeof obj.body.pipe === 'function') {       // live: a Node Readable
+    try { await pipeline(obj.body, res) } catch { /* client aborted - streams torn down */ }
+  } else {                                                     // mock: a Buffer/string
+    res.end(Buffer.isBuffer(obj.body) ? obj.body : Buffer.from(String(obj.body ?? '')))
+  }
+})
+
+// POST one object <- browser upload (raw octet-stream body, like the kubectl-cp upload).
+app.post('/api/aws/s3/:bucket/object', express.raw({ type: '*/*', limit: '200mb' }), async (req, res) => {
+  const { bucket } = req.params
+  const key = req.query.key
+  if (!validId(bucket) || !validPath(key)) return res.status(400).json({ ok: false, error: 'Invalid bucket or key' })
+  if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ ok: false, error: 'No file content' })
+  const r = await s3PutObject(bucket, key, req.body)
+  res.status(r.ok ? 200 : 400).json(r)
+})
+
+// POST an EC2 state transition. op in {start,stop,reboot,terminate}; region addresses the instance.
+const EC2_OPS = new Set(['start', 'stop', 'reboot', 'terminate'])
+app.post('/api/aws/ec2/:region/:id/:op', async (req, res) => {
+  const { region, id, op } = req.params
+  if (!validId(region) || !validId(id) || !EC2_OPS.has(op)) {
+    return res.status(400).json({ ok: false, error: 'Invalid region, instance id, or op' })
+  }
+  const r = await ec2Action(op, region, id)
+  res.status(r.ok ? 200 : 400).json(r)
+  if (r.ok) setTimeout(refresh, 2000)   // reflect the new state sooner than the next 5s tick
 })
 
 // SPA fallback - serve index.html for any non-API route.

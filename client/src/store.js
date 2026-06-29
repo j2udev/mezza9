@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { applyTheme, getStoredThemeId } from './theme'
 import { getToken, setToken, clearToken } from './lib/auth'
+import { AWS_RESOURCE_KEYS, AWS_ALIASES } from './aws/resources'
+
+// mezza9 is multi-provider (build-then-extract, see modules.md). The active provider is a thin
+// display selector: k8s is the default, AWS is module #2. A resource key maps to exactly one
+// provider; switching providers resets to that provider's default resource.
+const PROVIDER_DEFAULTS = { k8s: 'pods', aws: 's3buckets' }
+export const resourceProvider = (r) => (AWS_RESOURCE_KEYS.has(r) ? 'aws' : 'k8s')
 
 // Snapshot of the current view, pushed onto navStack so `[`/`]` can restore it. Drilldowns,
 // owner-jumps AND plain resource switches all record one, so history works browser-style (#79).
@@ -23,7 +30,20 @@ export const CLUSTER_SCOPED_RESOURCES = new Set([
   'nodes', 'pvs', 'namespaces', 'crds', 'clusterroles', 'clusterrolebindings', 'storageclasses',
 ])
 
-export const RESOURCE_ALIASES = {
+// ── Scope axis (modules.md friction #1, now extracted) ───────────────────────
+// The "scope axis" is a provider's primary filtering dimension: k8s scopes resources by NAMESPACE,
+// aws by REGION. The active scope VALUE lives in `activeNamespace` ('all' = unscoped). This is the
+// generic, provider-supplied replacement for the hardcoded namespace the cross-provider interface
+// wants. AWS rows carry a `region`, so they are region-scoped (NOT "cluster scoped"); only truly
+// global services (IAM etc. - none yet) are exempt via AWS_GLOBAL_SCOPED.
+const AWS_GLOBAL_SCOPED = new Set([])
+export const scopeFieldFor = (provider) => (provider === 'aws' ? 'region' : 'namespace')
+export const scopeLabelFor = (provider) => (provider === 'aws' ? 'region' : 'namespace')
+// Resource exempt from scope filtering (global within its provider). Resource keys are unique across
+// providers, so one predicate covers both.
+export const isGlobalScopedResource = (r) => CLUSTER_SCOPED_RESOURCES.has(r) || AWS_GLOBAL_SCOPED.has(r)
+
+const K8S_ALIASES = {
   p: 'pods', pod: 'pods', pods: 'pods',
   d: 'deployments', dep: 'deployments', deploy: 'deployments', deployments: 'deployments', deployment: 'deployments',
   rs: 'replicasets', replicaset: 'replicasets', replicasets: 'replicasets',
@@ -54,6 +74,12 @@ export const RESOURCE_ALIASES = {
   helm: 'helmreleases', helmreleases: 'helmreleases',
   pf: 'portforwards', portforward: 'portforwards', portforwards: 'portforwards', forwards: 'portforwards',
 }
+
+// Full alias map (k8s + aws), kept for display / back-compat. RESOLUTION is provider-scoped via
+// aliasesForProvider(): because the provider is fixed at deploy time (module #2), a k8s deployment
+// never resolves :s3 and an aws deployment never resolves :pods - each is a single-provider app.
+export const RESOURCE_ALIASES = { ...K8S_ALIASES, ...AWS_ALIASES }
+export const aliasesForProvider = (p) => (p === 'aws' ? AWS_ALIASES : K8S_ALIASES)
 
 // Resource types that support Enter drill-down
 export const DRILLABLE = new Set(['deployments', 'statefulsets', 'daemonsets', 'services', 'cronjobs', 'jobs', 'pods'])
@@ -131,12 +157,12 @@ export function sortItems(items, sortKey, sortDir) {
 // into AND the "all namespaces" view is active AND namespaced items exist - otherwise a
 // flat list (k9s default) sorted as a whole.
 // Keeping nav (j/k) and the visible list in lockstep depends on this single ordering.
-export function arrangeForDisplay(items, { activeNamespace, sortKey, sortDir, groupByNamespace }) {
-  const namespaced = items.some(i => i.namespace)
-  const grouped = groupByNamespace && activeNamespace === 'all' && namespaced
+export function arrangeForDisplay(items, { activeNamespace, sortKey, sortDir, groupByNamespace, scopeField = 'namespace' }) {
+  const scoped = items.some(i => i[scopeField])
+  const grouped = groupByNamespace && activeNamespace === 'all' && scoped
   if (!grouped) return sortItems(items, sortKey, sortDir)
   const groups = {}
-  items.forEach(i => { const k = i.namespace || ''; (groups[k] ||= []).push(i) })
+  items.forEach(i => { const k = i[scopeField] || ''; (groups[k] ||= []).push(i) })
   return Object.keys(groups)
     .sort((a, b) => a.localeCompare(b))
     .flatMap(k => sortItems(groups[k], sortKey, sortDir))
@@ -174,6 +200,21 @@ export const useStore = create((set, get) => ({
   crdResources: {},
   helmreleases: [],
   portforwards: [],       // active kubectl port-forwards (k9s-style table, #53)
+  // AWS provider data (module #2). s3buckets/ec2instances arrive in the shared stream; s3objects is
+  // populated only by the lazy bucket drill (drillIntoBucket), never broadcast.
+  s3buckets: [],
+  ec2instances: [],
+  s3objects: [],
+  ebsvolumes: [],
+  lambdafunctions: [],
+  vpcs: [],
+  securitygroups: [],
+  elasticips: [],
+  awsConnected: false,    // backend reached live AWS
+  awsDemo: false,         // serving mock AWS (MEZZ_AWS_DEMO) - separate from k8s demoMode (friction #7)
+  awsRegion: null,
+  awsIdentity: null,
+  awsError: null,
   selectedIds: new Set(), // multi-select
   demoMode: false,
   connected: false,          // WebSocket transport connection
@@ -190,6 +231,8 @@ export const useStore = create((set, get) => ({
   authError: null,
 
   // Current view
+  activeProvider: 'k8s',   // 'k8s' | 'aws' - FIXED per deployment (module #2), set once at boot by
+                           // initProvider() from /api/health. No runtime switcher; drives the shell.
   activeResource: 'pods',
   activeNamespace: 'all',
   selectedId: null,
@@ -248,6 +291,7 @@ export const useStore = create((set, get) => ({
   execModal: null,       // { namespace, pod, container, label } when the shell terminal is open (#81)
   debugModal: null,      // { namespace, pod, target, containers, label } when the debug dialog is open (#82)
   cpModal: null,         // { namespace, pod, container, containers, label } when the copy dialog is open (#108)
+  s3CpModal: null,       // { bucket, objectKey, label } when the S3 copy dialog is open (module #2)
   deleteConfirm: null,   // { item, resource } when ctrl+d confirm is pending
 
   setData: (data) => set(data),
@@ -267,6 +311,9 @@ export const useStore = create((set, get) => ({
       try { h = await fetch('/api/health').then(r => (r.ok ? r.json() : null)) } catch { h = null }
       if (!h) await new Promise(r => setTimeout(r, 1000))
     }
+    // Pick up this deployment's provider (module #2) from the public health probe, before the
+    // dashboard first renders, so it boots straight into the right provider's shell.
+    if (h?.provider) get().initProvider(h.provider)
     const required = !!(h && h.authRequired)
     if (!required) { set({ authChecked: true, authRequired: false, authed: true }); return }
     if (getToken()) {
@@ -295,13 +342,23 @@ export const useStore = create((set, get) => ({
   requireReauth: () => set({ authRequired: true, authed: false }),
 
   setActiveResource: (r) => set(s => ({
-    activeResource: r, selectedId: null, selectedIds: new Set(), filter: '', filterActive: false, filterPinned: false,
+    activeResource: r, activeProvider: resourceProvider(r),
+    selectedId: null, selectedIds: new Set(), filter: '', filterActive: false, filterPinned: false,
     // Record the view we're leaving so `[` can come back to it (skip self-switches). (#79)
     navStack: r === s.activeResource ? s.navStack : pushNav(s.navStack, navFrame(s)),
     navFuture: [], drilldownItems: null, drilldownLabel: '',
     nsPickerMode: false, previousResource: null,
     sortKey: null, sortDir: 'asc',
   })),
+
+  // Set this deployment's provider ONCE at boot, from /api/health (module #2). The provider is fixed
+  // per-deploy - there is no runtime switcher - so this just snaps the shell to the right provider
+  // and its home resource. Called from initAuth before the dashboard first renders.
+  initProvider: (provider) => set(s => {
+    const p = provider === 'aws' ? 'aws' : 'k8s'
+    if (p === s.activeProvider) return {}
+    return { activeProvider: p, activeResource: PROVIDER_DEFAULTS[p] || 'pods', selectedId: null, drilldownItems: null, drilldownLabel: '' }
+  }),
   setActiveNamespace: (ns) => set({ activeNamespace: ns, selectedId: null, selectedIds: new Set() }),
   setSelected: (id) => set({ selectedId: id }),
   toggleMultiSelect: (id) => set(s => {
@@ -354,31 +411,40 @@ export const useStore = create((set, get) => ({
       return true
     }
 
-    // ns / namespace (no arg) → namespace picker
-    if (trimmed === 'ns' || trimmed === 'namespace') {
+    // ns / namespace (no arg) → namespace picker (k8s only - AWS has no namespace axis)
+    if (get().activeProvider === 'k8s' && (trimmed === 'ns' || trimmed === 'namespace')) {
       get().enterNsPickerMode()
       set({ commandActive: false, command: '', filterActive: false, filterMode: 'str' })
       return true
     }
-    // ns <name> → direct set
-    if (trimmed.startsWith('ns ') || trimmed.startsWith('namespace ')) {
+    // ns <name> → direct set (k8s only)
+    if (get().activeProvider === 'k8s' && (trimmed.startsWith('ns ') || trimmed.startsWith('namespace '))) {
       const ns = trimmed.split(/\s+/).slice(1).join(' ')
       set({ activeNamespace: ns || 'all', commandActive: false, command: '', filterActive: false, filterMode: 'str' })
       return true
     }
+    // region (aws scope axis): ':region <name>' scopes to a region; ':region' or ':region all' clears.
+    if (get().activeProvider === 'aws' && (trimmed === 'region' || trimmed === 'reg' || trimmed.startsWith('region ') || trimmed.startsWith('reg '))) {
+      const r = trimmed.split(/\s+/).slice(1).join(' ')
+      set({ activeNamespace: (!r || r === 'all') ? 'all' : r, commandActive: false, command: '', filterActive: false, filterMode: 'str' })
+      return true
+    }
 
-    // whoami / can-i → self access review modal (task 94)
-    if (['whoami', 'cani', 'can-i', 'access', 'rbac'].includes(trimmed)) {
+    // whoami / can-i → self access review modal (task 94; k8s only)
+    if (get().activeProvider === 'k8s' && ['whoami', 'cani', 'can-i', 'access', 'rbac'].includes(trimmed)) {
       set({ commandActive: false, command: '', filterActive: false, filterMode: 'str' })
       get().openWhoami()
       return true
     }
 
-    const resolved = RESOURCE_ALIASES[trimmed]
+    // Resolution is scoped to THIS deployment's provider (module #2) - aliases for the other
+    // provider simply don't resolve here.
+    const resolved = aliasesForProvider(get().activeProvider)[trimmed]
     if (resolved) {
       const s = get()
       set({
-        activeResource: resolved, selectedId: null, selectedIds: new Set(), filter: '', filterActive: false, filterPinned: false,
+        activeResource: resolved, activeProvider: resourceProvider(resolved),
+        selectedId: null, selectedIds: new Set(), filter: '', filterActive: false, filterPinned: false,
         navStack: resolved === s.activeResource ? s.navStack : pushNav(s.navStack, navFrame(s)),
         navFuture: [], drilldownItems: null, drilldownLabel: '',
         nsPickerMode: false, previousResource: null,
@@ -418,6 +484,7 @@ export const useStore = create((set, get) => ({
       nsPickerMode: true,
       previousResource: s.activeResource,
       activeResource: 'namespaces',
+      activeProvider: 'k8s',
       selectedId: null,
       filter: '',
       filterActive: false,
@@ -430,6 +497,7 @@ export const useStore = create((set, get) => ({
     set({
       nsPickerMode: false,
       activeResource: s.previousResource || 'pods',
+      activeProvider: resourceProvider(s.previousResource || 'pods'),
       previousResource: null,
       selectedId: null,
       ...(selectedNamespace !== undefined ? { activeNamespace: selectedNamespace } : {}),
@@ -497,6 +565,7 @@ export const useStore = create((set, get) => ({
       navStack: [...s.navStack, navFrame(s)],
       navFuture: [],
       activeResource: target.resource,
+      activeProvider: resourceProvider(target.resource),
       drilldownItems: target.items,
       drilldownLabel: target.label,
       selectedId: null,
@@ -514,6 +583,7 @@ export const useStore = create((set, get) => ({
       navStack: s.navStack.slice(0, -1),
       navFuture: [navFrame(s), ...s.navFuture],
       activeResource: prev.resource,
+      activeProvider: resourceProvider(prev.resource),
       selectedId: prev.selectedId,
       activeNamespace: prev.namespace,
       filter: prev.filter,
@@ -531,6 +601,7 @@ export const useStore = create((set, get) => ({
       navStack: [...s.navStack, navFrame(s)],
       navFuture: s.navFuture.slice(1),
       activeResource: next.resource,
+      activeProvider: resourceProvider(next.resource),
       selectedId: next.selectedId,
       activeNamespace: next.namespace,
       filter: next.filter,
@@ -551,7 +622,7 @@ export const useStore = create((set, get) => ({
   fetchCrdResources: async (group, version, plural) => {
     const key = `${group}/${version}/${plural}`
     set(s => ({
-      activeResource: `cr:${key}`, selectedId: null, filter: '', filterActive: false, filterPinned: false,
+      activeResource: `cr:${key}`, activeProvider: 'k8s', selectedId: null, filter: '', filterActive: false, filterPinned: false,
       navStack: `cr:${key}` === s.activeResource ? s.navStack : pushNav(s.navStack, navFrame(s)),
       navFuture: [], drilldownItems: null, drilldownLabel: '',
     }))
@@ -723,6 +794,58 @@ export const useStore = create((set, get) => ({
   },
   closeCp: () => set({ cpModal: null }),
 
+  // ── AWS provider actions (module #2) ─────────────────────────────────────────
+  // Drill into a bucket's objects. Unlike the k8s pod->containers drill (sync, children embedded in
+  // the parent row), S3 objects are fetched lazily and paginated - so this is async and can't use
+  // getDrillTarget (friction #3). useKeys special-cases Enter on s3buckets to call this.
+  drillIntoBucket: async (item) => {
+    const s = get()
+    const label = `${item.name} › objects`
+    set({
+      navStack: pushNav(s.navStack, navFrame(s)), navFuture: [],
+      activeResource: 's3objects', activeProvider: 'aws',
+      drilldownItems: [], drilldownLabel: label,
+      selectedId: null, selectedIds: new Set(),
+      filter: '', filterActive: false, filterPinned: false,
+      sortKey: null, sortDir: 'asc',
+    })
+    try {
+      const res = await fetch(`/api/aws/s3/${encodeURIComponent(item.name)}`)
+      const { objects } = await res.json()
+      // Only apply if the user is still on this exact drilldown (they may have navigated away).
+      set(st => (st.activeResource === 's3objects' && st.drilldownLabel === label) ? { drilldownItems: objects || [] } : {})
+    } catch (err) {
+      console.warn('S3 objects fetch failed:', err.message)
+      set(st => st.activeResource === 's3objects' ? { drilldownItems: [] } : {})
+    }
+  },
+
+  // EC2 state transitions (start/stop/reboot/terminate). Multi-select aware, fire-and-forget like
+  // killSelected, but POST to the per-region op route (region is on each row). The next refresh
+  // reflects the new state. Writes refuse server-side in AWS demo mode.
+  ec2Action: (op) => {
+    const s = get()
+    if (s.activeResource !== 'ec2instances') return
+    let targets = []
+    if (s.selectedIds.size > 0) targets = s.getFilteredItems().filter(i => s.selectedIds.has(i.id))
+    else if (s.selectedId) { const it = s.getFilteredItems().find(i => i.id === s.selectedId); if (it) targets = [it] }
+    if (!targets.length) return
+    targets.forEach(t => fetch(`/api/aws/ec2/${encodeURIComponent(t.region)}/${encodeURIComponent(t.id)}/${op}`, { method: 'POST' }).catch(() => {}))
+    s.clearMultiSelect()
+  },
+
+  // Open the S3 copy dialog (download/upload). On a bucket it opens with no key; on an object it
+  // prefills the object key for a one-click download. The "local" side is the browser, like CopyModal.
+  openS3Cp: () => {
+    const s = get()
+    if (!s.selectedId) return
+    const item = s.getItems().find(i => i.id === s.selectedId)
+    if (!item) return
+    if (s.activeResource === 's3buckets') set({ s3CpModal: { bucket: item.name, objectKey: '', label: item.name } })
+    else if (s.activeResource === 's3objects') set({ s3CpModal: { bucket: item.bucket, objectKey: item.name, label: `${item.bucket}/${item.name}` } })
+  },
+  closeS3Cp: () => set({ s3CpModal: null }),
+
   // Jump to the controller that owns the selected item (shift+j). Pushes a nav frame
   // so `[` returns. No-op if the item has no owner or the owner isn't in current data.
   jumpToOwner: () => {
@@ -735,7 +858,7 @@ export const useStore = create((set, get) => ({
     if (!target) return
     set({
       navStack: pushNav(s.navStack, navFrame(s)), navFuture: [],
-      activeResource: owner.resource, drilldownItems: null, drilldownLabel: '',
+      activeResource: owner.resource, activeProvider: resourceProvider(owner.resource), drilldownItems: null, drilldownLabel: '',
       activeNamespace: owner.namespace || s.activeNamespace,
       filter: '', filterActive: false, filterPinned: false,
       sortKey: null, sortDir: 'asc',
@@ -757,17 +880,18 @@ export const useStore = create((set, get) => ({
     // Cluster-scoped resources (namespaces, nodes, pvs, CRDs, etc.) have no namespace, so
     // the active-namespace scope must NOT apply to them - otherwise selecting a namespace
     // empties the namespace picker (and the nodes/pvs lists). #91
-    if (s.activeNamespace !== 'all' && !CLUSTER_SCOPED_RESOURCES.has(s.activeResource)) {
-      items = items.filter(i => i.namespace === s.activeNamespace)
+    const scopeField = scopeFieldFor(s.activeProvider)
+    if (s.activeNamespace !== 'all' && !isGlobalScopedResource(s.activeResource)) {
+      items = items.filter(i => i[scopeField] === s.activeNamespace)
     }
     if (s.filter) {
       const q = s.filter.toLowerCase()
       items = items.filter(i =>
         i.name.toLowerCase().includes(q) ||
-        (i.namespace || '').toLowerCase().includes(q)
+        (i[scopeField] || '').toLowerCase().includes(q)
       )
     }
     if (s.faultsOnly) items = items.filter(isFault)
-    return arrangeForDisplay(items, { activeNamespace: s.activeNamespace, sortKey: s.sortKey, sortDir: s.sortDir, groupByNamespace: s.groupByNamespace })
+    return arrangeForDisplay(items, { activeNamespace: s.activeNamespace, sortKey: s.sortKey, sortDir: s.sortDir, groupByNamespace: s.groupByNamespace, scopeField })
   },
 }))

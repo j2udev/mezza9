@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { alpha } from '../theme'
 import { useStore } from '../store'
+import { AWS_GROUPS } from '../aws/resources'
 
 // One accent color per section - color now encodes the resource *category* instead of
 // being seemingly-random per item (#69). The highlight/active color a row gets is its
@@ -123,6 +124,7 @@ function SectionLabel({ children, collapsed, onToggle }) {
 
 export function Sidebar() {
   const activeResource    = useStore(s => s.activeResource)
+  const activeProvider    = useStore(s => s.activeProvider)
   const collapsed         = useStore(s => s.sidebarCollapsed)
   const setActiveResource = useStore(s => s.setActiveResource)
   const openWhoami        = useStore(s => s.openWhoami)
@@ -162,7 +164,17 @@ export function Sidebar() {
     namespaces:          useStore(s => s.namespaces.length),
     events:              useStore(s => s.events.length),
     helmreleases:        useStore(s => s.helmreleases.length),
+    s3buckets:           useStore(s => s.s3buckets.length),
+    ec2instances:        useStore(s => s.ec2instances.length),
+    ebsvolumes:          useStore(s => s.ebsvolumes.length),
+    lambdafunctions:     useStore(s => s.lambdafunctions.length),
+    vpcs:                useStore(s => s.vpcs.length),
+    securitygroups:      useStore(s => s.securitygroups.length),
+    elasticips:          useStore(s => s.elasticips.length),
   }
+
+  // The active provider selects which set of resource groups the sidebar renders (module #2).
+  const groups = activeProvider === 'aws' ? AWS_GROUPS : GROUPS
 
   return (
     <div style={{
@@ -178,7 +190,7 @@ export function Sidebar() {
           toggle (#13). The sidebar content starts straight at the first group. */}
       {!collapsed && (
         <div style={{ overflowY: 'auto', flex: 1, paddingBottom: 4 }}>
-          {GROUPS.map(group => {
+          {groups.map(group => {
             const isGroupCollapsed = !!groupCollapsed[group.label]
             return (
               <div key={group.label}>
@@ -198,7 +210,7 @@ export function Sidebar() {
             )
           })}
 
-          {crds.length > 0 && (
+          {activeProvider === 'k8s' && crds.length > 0 && (
             <div>
               <SectionLabel
                 collapsed={!!groupCollapsed['CUSTOM']}

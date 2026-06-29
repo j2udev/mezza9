@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { alpha } from '../theme'
 import { statusColor } from '../constants'
+import { AWS_RESOURCES, awsRowFields } from '../aws/resources'
 
 function rowFields(item, resource) {
   if (resource.startsWith('cr:')) {
@@ -9,6 +10,8 @@ function rowFields(item, resource) {
       { value: item.age || '',    color: 'var(--mz-text-dim)', w: 55, right: true },
     ]
   }
+  // AWS resource types render from the provider registry's column specs (module #2).
+  if (AWS_RESOURCES[resource]) return awsRowFields(item, resource)
   switch (resource) {
     case 'pods':
       return [
@@ -208,7 +211,7 @@ function rowFields(item, resource) {
   }
 }
 
-export function ResourceRow({ item, resource, selected, multiSelected, scrollIntoView, onSelect, onToggleMulti, animDelay, firstInGroup, nsColumnWidth = 0, nsColor }) {
+export function ResourceRow({ item, resource, selected, multiSelected, scrollIntoView, onSelect, onToggleMulti, animDelay, firstInGroup, nsColumnWidth = 0, nsColor, scopeValue }) {
   const ref = useRef()
   const rowColor = statusColor(item.status)
   const fields = rowFields(item, resource)
@@ -256,7 +259,7 @@ export function ResourceRow({ item, resource, selected, multiSelected, scrollInt
           color: nsColor || 'var(--mz-text-dim)', fontFamily: 'inherit',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {item.namespace || ''}
+          {scopeValue ?? item.namespace ?? ''}
         </span>
       )}
 

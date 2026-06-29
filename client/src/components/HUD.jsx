@@ -1,29 +1,19 @@
 import { useRef, useEffect, useMemo } from 'react'
 import { alpha } from '../theme'
-import { useStore, RESOURCE_ALIASES } from '../store'
+import { useStore, aliasesForProvider, scopeFieldFor, scopeLabelFor } from '../store'
 import { DetailPanel } from './DetailPanel'
 import { ActionModal } from './ActionModal'
 import { PortForwardModal } from './PortForwardModal'
 import { ExecModal } from './ExecModal'
 import { DebugModal } from './DebugModal'
 import { CopyModal } from './CopyModal'
+import { S3CopyModal } from './S3CopyModal'
 import { HelpModal } from './HelpModal'
 import { ActionMenu } from './ActionMenu'
 
-// Built-in resource names the `:` resource picker can autocomplete/cycle through (Tab). The
-// canonical resource names (deduped alias targets) plus the `ns` namespace-picker shortcut.
-// Live CRDs are folded in at render time (#20) so the picker can also find custom resources.
-// 'whoami' is not a resource - it's the RBAC self access-review (#94); folded in here so the
-// `:` picker can surface/complete it like everything else (picking it routes through submitCommand).
-const COMMAND_OPTIONS = [...new Set([...Object.values(RESOURCE_ALIASES), 'ns', 'whoami'])].sort()
-
-// canonical name → every alias that resolves to it (incl. the canonical itself), so the
-// resource dropdown can match what the user types even when it's a short alias (e.g. "svc").
-const ALIASES_FOR = (() => {
-  const m = { ns: ['ns', 'namespace'], whoami: ['whoami', 'cani', 'can-i', 'access', 'rbac'] }
-  for (const [alias, canon] of Object.entries(RESOURCE_ALIASES)) (m[canon] ||= [canon]).push(alias)
-  return m
-})()
+// The `:` picker's option list + alias map are computed INSIDE the component now, scoped to the
+// deployment's provider (module #2): a k8s deploy offers k8s resources (+ ns/whoami), an AWS deploy
+// offers only AWS resources. Live CRDs are folded in at render time (#20), k8s deploys only.
 // Rank score for an alias list against the typed stem: [tier, length]. Lower sorts first.
 // tier 0 = an alias equals the stem (exact), 1 = an alias starts with it (prefix),
 // 2 = an alias merely contains it (substring), Infinity tier = no match. `length` is the
@@ -79,6 +69,7 @@ function Hint({ keys, label }) {
 
 export function HUD({ panelWidth = 288 }) {
   const activeResource  = useStore(s => s.activeResource)
+  const activeProvider  = useStore(s => s.activeProvider)
   const activeNamespace = useStore(s => s.activeNamespace)
   const demoMode        = useStore(s => s.demoMode)
   const filter          = useStore(s => s.filter)
@@ -136,18 +127,20 @@ export function HUD({ panelWidth = 288 }) {
   const allItems = drilldownItems
     || (activeResource.startsWith('cr:') ? (crdResources[activeResource.slice(3)] || []) : (storeItems || []))
 
+  // Scope axis: namespace (k8s) or region (aws). Matches ResourceList's filtering exactly.
+  const scopeField = scopeFieldFor(activeProvider)
   const filteredCount = useMemo(() => {
     let items = allItems
-    // Cluster-scoped resources have no namespace, so the active-namespace scope is skipped
-    // for them (matches ResourceList) - otherwise the count would read 0. #91
-    const hasNs = allItems.some(i => i.namespace)
-    if (activeNamespace !== 'all' && hasNs) items = items.filter(i => i.namespace === activeNamespace)
+    // Global-scoped resources have no scope value, so the active-scope filter is skipped for them
+    // (matches ResourceList) - otherwise the count would read 0. #91
+    const hasScope = allItems.some(i => i[scopeField])
+    if (activeNamespace !== 'all' && hasScope) items = items.filter(i => i[scopeField] === activeNamespace)
     if (!filter) return items.length
     const q = filter.toLowerCase()
     return items.filter(i =>
-      i.name.toLowerCase().includes(q) || (i.namespace || '').toLowerCase().includes(q)
+      i.name.toLowerCase().includes(q) || (i[scopeField] || '').toLowerCase().includes(q)
     ).length
-  }, [allItems, filter, activeNamespace])
+  }, [allItems, filter, activeNamespace, scopeField])
 
   const totalCount = allItems.length
   const resourceLabel = drilldownLabel
@@ -161,20 +154,34 @@ export function HUD({ panelWidth = 288 }) {
   // its alias list for matching) plus every live CRD (#20). A CRD candidate submits its
   // `cr:group/version/plural` key (what fetchCrdResources / submitCommand expects) and is
   // matched on its kind, plural, and full name so typing any of them surfaces it.
+  // Provider-scoped picker options (module #2). aliasMap drives both the dropdown and Enter-resolution.
+  const aliasMap = aliasesForProvider(activeProvider)
+  const commandOptions = useMemo(
+    () => [...new Set([...Object.values(aliasMap), ...(activeProvider === 'k8s' ? ['ns', 'whoami'] : [])])].sort(),
+    [activeProvider]) // eslint-disable-line react-hooks/exhaustive-deps
+  const aliasesFor = useMemo(() => {
+    const m = activeProvider === 'k8s'
+      ? { ns: ['ns', 'namespace'], whoami: ['whoami', 'cani', 'can-i', 'access', 'rbac'] }
+      : {}
+    for (const [alias, canon] of Object.entries(aliasMap)) (m[canon] ||= [canon]).push(alias)
+    return m
+  }, [activeProvider]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const candidatePool = useMemo(() => {
-    const builtin = COMMAND_OPTIONS.map(n => ({
+    const builtin = commandOptions.map(n => ({
       value: n,
       label: n === 'ns' ? 'namespace (picker)' : n === 'whoami' ? 'whoami (access review)' : n,
       sublabel: n === 'whoami' ? 'kubectl auth can-i' : '',
-      aliases: ALIASES_FOR[n] || [n], isCrd: false,
+      aliases: aliasesFor[n] || [n], isCrd: false,
     }))
-    const custom = (crds || []).map(c => ({
+    // CRDs are a k8s concept - only fold them in for a k8s deployment.
+    const custom = activeProvider === 'k8s' ? (crds || []).map(c => ({
       value: `cr:${c.group}/${c.version}/${c.plural}`,
       label: c.kind, sublabel: c.group, isCrd: true,
       aliases: [c.kind, c.plural, c.name].map(a => a.toLowerCase()),
-    }))
+    })) : []
     return [...builtin, ...custom]
-  }, [crds])
+  }, [crds, activeProvider, commandOptions, aliasesFor])
 
   // Candidates for the resource dropdown, ranked by typed text. Matching is alias-aware
   // (typing "svc" surfaces "services", "cert" surfaces Certificate); prefix matches rank first.
@@ -249,8 +256,8 @@ export function HUD({ panelWidth = 288 }) {
   const hiddenCount = Math.max(0, trail.length - visibleCount)
   const shownTrail = trail.slice(hiddenCount)
 
-  // The grouping toggle only matters for namespaced resources viewed across all namespaces.
-  const namespacedView = activeNamespace === 'all' && !nsPickerMode && allItems.some(i => i.namespace)
+  // The grouping toggle only matters for scoped resources (namespaced/regional) across all scopes.
+  const namespacedView = activeNamespace === 'all' && !nsPickerMode && allItems.some(i => i[scopeField])
 
   return (
     <>
@@ -343,7 +350,7 @@ export function HUD({ panelWidth = 288 }) {
               role="button" tabIndex={0}
               onClick={() => setActiveNamespace('all')}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveNamespace('all') } }}
-              title={`Namespace: ${activeNamespace} - click to clear (Esc)`}
+              title={`${scopeLabelFor(activeProvider)}: ${activeNamespace} - click to clear (Esc)`}
               style={{
                 pointerEvents: 'auto', cursor: 'pointer', display: 'flex', flexDirection: 'column',
                 alignItems: 'center', width: 'max-content', maxWidth: '40vw', gap: 2,
@@ -420,7 +427,7 @@ export function HUD({ panelWidth = 288 }) {
                   // raw text so an unknown entry still routes through submitCommand.
                   if (resMode) {
                     const typed = command.trim().toLowerCase()
-                    pickResource(RESOURCE_ALIASES[typed] ? typed : (resCandidates[0] || typed))
+                    pickResource(aliasMap[typed] ? typed : (resCandidates[0] || typed))
                   } else filterRef.current?.blur()
                 }
                 if (e.key === 'Escape') {
@@ -511,6 +518,9 @@ export function HUD({ panelWidth = 288 }) {
 
       {/* ── Copy files dialog (kubectl cp, #108) ─────────────────── */}
       <CopyModal />
+
+      {/* ── S3 copy dialog (module #2) ───────────────────────────── */}
+      <S3CopyModal />
 
       {/* ── Help modal ───────────────────────────────────────────── */}
       <HelpModal />

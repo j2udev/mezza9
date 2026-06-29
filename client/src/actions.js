@@ -1,4 +1,13 @@
-import { FORWARDABLE, OWNED, CLUSTER_SCOPED_RESOURCES, RBAC_RESOURCES } from './store'
+import { FORWARDABLE, OWNED, CLUSTER_SCOPED_RESOURCES, RBAC_RESOURCES, scopeFieldFor, isGlobalScopedResource } from './store'
+import { AWS_RESOURCE_KEYS } from './aws/resources'
+
+// Warp the active-scope filter to the selected item's scope value (namespace for k8s, region for
+// aws); toggles back to 'all' if already scoped there. Shared by the warp-ns / warp-region actions.
+function warpToScope(s) {
+  const item = s.getFilteredItems().find(i => i.id === s.selectedId)
+  const v = item?.[scopeFieldFor(s.activeProvider)]
+  if (v) s.setActiveNamespace(s.activeNamespace === v ? 'all' : v)
+}
 
 // ── Object action registry ────────────────────────────────────────────────────
 // Single source of truth for every per-object action. To add a new action, add one
@@ -23,7 +32,10 @@ const LOGS = new Set(['pods', 'deployments', 'statefulsets', 'daemonsets', 'serv
 // resource instances (`cr:group/version/plural`) qualify - kubectl drives all of these the
 // same way via kubectlResource() (task 21). Helm releases, the container drilldown rows, and
 // the port-forward table are not kubectl objects, so they are excluded.
-const isStd = (r) => r !== 'helmreleases' && r !== 'containers' && r !== 'portforwards'
+// AWS resources are not kubectl objects - they have no describe/yaml/edit/delete via the
+// /:resource/:namespace/:name route, so they are excluded too. (friction #4 in modules.md: this
+// denylist should really invert to an allowlist / per-resource capability tags.)
+const isStd = (r) => r !== 'helmreleases' && r !== 'containers' && r !== 'portforwards' && !AWS_RESOURCE_KEYS.has(r)
 
 export const OBJECT_ACTIONS = [
   // ── Inspect ──────────────────────────────────────────────
@@ -79,21 +91,41 @@ export const OBJECT_ACTIONS = [
   // directly (like clicking a namespace header in grouped mode); toggles back to all if
   // already scoped there. Only meaningful for namespaced resources.
   { id: 'warp-ns', label: 'Warp to namespace', hint: 'w', color: 'var(--mz-accent-2)', group: 'Navigate',
-    when: r => !CLUSTER_SCOPED_RESOURCES.has(r) && r !== 'portforwards',
-    key: e => e.key === 'w', run: s => {
-      const item = s.getFilteredItems().find(i => i.id === s.selectedId)
-      const ns = item?.namespace
-      if (ns) s.setActiveNamespace(s.activeNamespace === ns ? 'all' : ns)
-    } },
+    when: r => !AWS_RESOURCE_KEYS.has(r) && !CLUSTER_SCOPED_RESOURCES.has(r) && r !== 'portforwards',
+    key: e => e.key === 'w', run: warpToScope },
+  { id: 'warp-region', label: 'Warp to region', hint: 'w', color: 'var(--mz-accent-2)', group: 'Navigate',
+    when: r => AWS_RESOURCE_KEYS.has(r) && !isGlobalScopedResource(r),
+    key: e => e.key === 'w', run: warpToScope },
   // From a CRD: jump to its custom-resource instances (also Enter in the list - #20). Surfaced
   // here so it appears as a panel chip + in the palette like every other action (task 21).
   { id: 'cr-instances', label: 'View resources', hint: '↵', color: 'var(--mz-accent-2)', group: 'Navigate',
     when: r => r === 'crds',
     run: s => { const c = s.getItems().find(i => i.id === s.selectedId); if (c) s.fetchCrdResources(c.group, c.version, c.plural) } },
 
+  // ── AWS (module #2) ──────────────────────────────────────
+  // S3 copy/download/upload - same Shift+C muscle memory as the kubectl-cp copy above, but the
+  // implementation is bucket/key blob get/put, not exec+tar (friction #5). `when` is disjoint from
+  // the kubectl 'copy' action's (pods/containers), so the shared Shift+C never collides.
+  { id: 's3-cp', label: 'Copy / Download', hint: '⇧c', color: 'var(--mz-accent-2)', group: 'Actions',
+    when: r => r === 's3buckets' || r === 's3objects',
+    key: e => e.key === 'C' && !e.ctrlKey && !e.metaKey && !e.altKey, run: s => s.openS3Cp() },
+  // EC2 state transitions. start/reboot are safe (panel chips); stop/terminate are danger
+  // (palette-only). No keyboard shortcuts - discoverable via the `a` palette to avoid accidents.
+  { id: 'ec2-start', label: 'Start', hint: '', color: 'var(--mz-ok)', group: 'Actions',
+    when: r => r === 'ec2instances', run: s => s.ec2Action('start') },
+  { id: 'ec2-reboot', label: 'Reboot', hint: '', color: 'var(--mz-orange)', group: 'Actions',
+    when: r => r === 'ec2instances', run: s => s.ec2Action('reboot') },
+
   // ── Danger ───────────────────────────────────────────────
   // ctrl+d / ctrl+k are handled directly in useKeys (multi-select aware); these entries
   // surface the same operations in the palette and carry the danger flag.
+  // EC2 stop is reversible; terminate is NOT, so it gets an inline confirm (no kubectl-style
+  // delete-confirm dialog exists for AWS yet).
+  { id: 'ec2-stop', label: 'Stop', hint: '', color: 'var(--mz-warn)', group: 'Danger', danger: true,
+    when: r => r === 'ec2instances', run: s => s.ec2Action('stop') },
+  { id: 'ec2-terminate', label: 'Terminate…', hint: '', color: 'var(--mz-danger)', group: 'Danger', danger: true,
+    when: r => r === 'ec2instances',
+    run: s => { if (typeof window === 'undefined' || window.confirm('Terminate the selected EC2 instance(s)? This cannot be undone.')) s.ec2Action('terminate') } },
   { id: 'delete', label: 'Delete…', hint: '⌃d', color: 'var(--mz-danger-2)', group: 'Danger', danger: true,
     when: r => isStd(r), run: s => s.requestDelete() },
   { id: 'kill', label: 'Kill (no confirm)', hint: '⌃k', color: 'var(--mz-danger)', group: 'Danger', danger: true,

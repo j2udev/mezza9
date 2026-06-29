@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { alpha } from '../theme'
-import { useStore, arrangeForDisplay, isFault } from '../store'
+import { useStore, arrangeForDisplay, isFault, scopeFieldFor, scopeLabelFor } from '../store'
 import { getNsColor } from '../constants'
+import { AWS_RESOURCES, awsHeaders, awsWidths } from '../aws/resources'
 import { ResourceRow } from './ResourceRow'
 
 // Column header label → sort key (only these columns are sortable)
@@ -82,10 +83,12 @@ function SortArrow({ active, dir }) {
 // Width of the NAMESPACE column shown in flat (ungrouped) mode.
 const NS_COL_W = 150
 
-function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
+function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn, scopeLabel = 'NAMESPACE' }) {
   const key = resource.startsWith('cr:') ? '__cr__' : resource
-  const headers = COL_HEADERS[key] || []
-  const widths  = COL_WIDTHS[key]  || []
+  // AWS resource types declare their columns in the provider registry (one source for header + row),
+  // so adding an AWS service needs no edit here - it just works (module #2 intra-AWS extensibility).
+  const headers = AWS_RESOURCES[key] ? awsHeaders(key) : (COL_HEADERS[key] || [])
+  const widths  = AWS_RESOURCES[key] ? awsWidths(key)  : (COL_WIDTHS[key]  || [])
   const nameActive = sortKey === 'name'
   return (
     <div style={{
@@ -102,7 +105,7 @@ function ColumnHeader({ resource, sortKey, sortDir, onSort, showNsColumn }) {
           width: NS_COL_W, flexShrink: 0, fontSize: 10, letterSpacing: '0.08em',
           color: 'var(--mz-accent-2)', paddingRight: 8,
         }}>
-          NAMESPACE
+          {scopeLabel}
         </span>
       )}
       <span
@@ -164,6 +167,7 @@ function NamespaceHeader({ name, count, color, onClick, focused }) {
 
 export function ResourceList() {
   const activeResource     = useStore(s => s.activeResource)
+  const activeProvider     = useStore(s => s.activeProvider)
   const activeNamespace    = useStore(s => s.activeNamespace)
   const crdResources       = useStore(s => s.crdResources)
   const drilldownItems     = useStore(s => s.drilldownItems)
@@ -180,57 +184,60 @@ export function ResourceList() {
   const toggleMultiSelect  = useStore(s => s.toggleMultiSelect)
   const setActiveNamespace = useStore(s => s.setActiveNamespace)
 
+  // The scope axis is the provider's primary filtering dimension: namespace (k8s) or region (aws).
+  const scopeField = scopeFieldFor(activeProvider)
+  const scopeLabel = scopeLabelFor(activeProvider).toUpperCase()
+
   const allItems = drilldownItems
     ?? (activeResource.startsWith('cr:')
       ? (crdResources[activeResource.slice(3)] || [])
       : (storeItems || []))
 
-  // Only non-empty namespaces → if all empty it's cluster-scoped
-  const allNamespaces = useMemo(
-    () => [...new Set(allItems.map(i => i.namespace).filter(Boolean))],
-    [allItems]
+  // Distinct non-empty scope values → if all empty the resource is global-scoped (no scope axis).
+  const allScopes = useMemo(
+    () => [...new Set(allItems.map(i => i[scopeField]).filter(Boolean))],
+    [allItems, scopeField]
   )
 
   const displayItems = useMemo(() => {
     let items = allItems
-    // Cluster-scoped resources (no namespaces at all - e.g. the namespace picker, nodes,
-    // pvs) are exempt from the active-namespace scope; otherwise picking a namespace would
-    // empty those lists. #91
-    if (activeNamespace !== 'all' && allNamespaces.length) items = items.filter(i => i.namespace === activeNamespace)
+    // Global-scoped resources (no scope value - e.g. the namespace picker, nodes, pvs) are exempt
+    // from the active-scope filter; otherwise picking a scope would empty those lists. #91
+    if (activeNamespace !== 'all' && allScopes.length) items = items.filter(i => i[scopeField] === activeNamespace)
     if (filter) {
       const q = filter.toLowerCase()
       items = items.filter(i =>
-        i.name.toLowerCase().includes(q) || (i.namespace || '').toLowerCase().includes(q)
+        i.name.toLowerCase().includes(q) || (i[scopeField] || '').toLowerCase().includes(q)
       )
     }
     if (faultsOnly) items = items.filter(isFault)
-    return arrangeForDisplay(items, { activeNamespace, sortKey, sortDir, groupByNamespace })
-  }, [allItems, allNamespaces, activeNamespace, filter, faultsOnly, sortKey, sortDir, groupByNamespace])
+    return arrangeForDisplay(items, { activeNamespace, sortKey, sortDir, groupByNamespace, scopeField })
+  }, [allItems, allScopes, scopeField, activeNamespace, filter, faultsOnly, sortKey, sortDir, groupByNamespace])
 
-  // Grouped (namespace headers) only when opted in via ctrl+g; otherwise a flat
-  // k9s-style list with NAMESPACE as a column.
-  const showNsHeaders = groupByNamespace && activeNamespace === 'all' && allNamespaces.length > 0
-  const showNsColumn  = !groupByNamespace && activeNamespace === 'all' && allNamespaces.length > 0
+  // Grouped (scope headers) only when opted in via ctrl+g; otherwise a flat k9s-style list with the
+  // scope (namespace / region) as a column.
+  const showNsHeaders = groupByNamespace && activeNamespace === 'all' && allScopes.length > 0
+  const showNsColumn  = !groupByNamespace && activeNamespace === 'all' && allScopes.length > 0
 
-  // In grouped mode, bucket by namespace (alphabetical). In flat mode, render a single
-  // group so the globally-sorted displayItems order is preserved verbatim.
+  // In grouped mode, bucket by scope value (alphabetical). In flat mode, render a single group so
+  // the globally-sorted displayItems order is preserved verbatim.
   const groups = useMemo(() => {
     if (!showNsHeaders) return [['', displayItems]]
     const map = {}
     displayItems.forEach(item => {
-      const key = item.namespace || ''
+      const key = item[scopeField] || ''
       if (!map[key]) map[key] = []
       map[key].push(item)
     })
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
-  }, [displayItems, showNsHeaders])
+  }, [displayItems, showNsHeaders, scopeField])
 
   const displayName = activeResource.startsWith('cr:') ? activeResource.slice(3).split('/').pop() : activeResource
   let rowIndex = 0
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden' }}>
-      <ColumnHeader resource={activeResource} sortKey={sortKey} sortDir={sortDir} onSort={setSort} showNsColumn={showNsColumn} />
+      <ColumnHeader resource={activeResource} sortKey={sortKey} sortDir={sortDir} onSort={setSort} showNsColumn={showNsColumn} scopeLabel={scopeLabel} />
 
       {displayItems.length === 0 && (
         <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: 12, color: 'var(--mz-text-dim)', fontFamily: 'inherit' }}>
@@ -264,7 +271,8 @@ export function ResourceList() {
                   animDelay={delay}
                   firstInGroup={showNsHeaders && !!ns && itemIdx === 0}
                   nsColumnWidth={showNsColumn ? NS_COL_W : 0}
-                  nsColor={showNsColumn && item.namespace ? getNsColor(item.namespace) : null}
+                  scopeValue={item[scopeField]}
+                  nsColor={showNsColumn && item[scopeField] ? getNsColor(item[scopeField]) : null}
                   onSelect={() => setSelected(isSelected ? null : item.id)}
                   onToggleMulti={() => toggleMultiSelect(item.id)}
                 />
