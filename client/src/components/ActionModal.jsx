@@ -266,6 +266,9 @@ export function ActionModal() {
   const [viewFormat,      setViewFormat]      = useState('yaml') // 'describe' | 'yaml' | 'json'
   const [jsonContent,     setJsonContent]     = useState('')
   const [describeContent, setDescribeContent] = useState('')
+  // AWS inspect (module #2): the TAGS view text (DESCRIBE reuses describeContent, JSON reuses
+  // jsonContent). One /api/aws/describe fetch fills all three.
+  const [awsTagsText,     setAwsTagsText]     = useState('')
 
   // Helm values: single view that toggles between user-supplied and computed (all) values
   const [helmAllValues, setHelmAllValues] = useState(false)
@@ -284,6 +287,9 @@ export function ActionModal() {
   const nsParam  = modal ? (CLUSTER_SCOPED.has(modal.resource) ? '_' : (modal.item.namespace || '_')) : '_'
   const isInspect = modal && (modal.type === 'describe' || modal.type === 'yaml' || modal.type === 'edit')
   const isPolicy  = modal && modal.type === 'policy'
+  // AWS inspect (module #2): a READ-only sibling of isInspect. viewFormat is 'describe' | 'json' |
+  // 'tags' (no yaml, no edit, no secret decode). All k8s-only branches guard on !isAwsInspect.
+  const isAwsInspect = modal && modal.type === 'aws-inspect'
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -298,11 +304,16 @@ export function ActionModal() {
 
   // The raw text shown in the current read view (describe/yaml/json) or helm/logs content.
   const rawViewContent = useMemo(() => {
+    if (isAwsInspect) {
+      if (viewFormat === 'json') return jsonContent
+      if (viewFormat === 'tags') return awsTagsText
+      return describeContent // 'describe'
+    }
     if (!isInspect) return content
     if (viewFormat === 'json') return jsonContent
     if (viewFormat === 'describe') return describeContent
     return content // yaml
-  }, [isInspect, viewFormat, content, jsonContent, describeContent])
+  }, [isAwsInspect, isInspect, viewFormat, content, jsonContent, describeContent, awsTagsText])
 
   // For describe/yaml: indices of lines that match the search (secret decode applies to yaml only)
   const displayContent   = useMemo(() => {
@@ -467,7 +478,7 @@ export function ActionModal() {
   const prevAllValues = useRef(null)
   useEffect(() => {
     if (!modal) return
-    setContent(''); setDescribeContent(''); setJsonContent('')
+    setContent(''); setDescribeContent(''); setJsonContent(''); setAwsTagsText('')
     setFetchError(null); setLogPods([])
     setLogFilter(''); setLogPodFilter('all')
     setSearch(''); setSearchActive(false); setMatchIndex(0)
@@ -478,7 +489,8 @@ export function ActionModal() {
     setPolicyData(null)
     fetchedRef.current = {}
     const t = modal.type
-    setViewFormat(t === 'describe' ? 'describe' : 'yaml')
+    // AWS inspect defaults to JSON (the authoritative raw Describe* output - the yaml analog).
+    setViewFormat(t === 'aws-inspect' ? 'json' : t === 'describe' ? 'describe' : 'yaml')
     setEditMode(t === 'edit')
     setShowLineNumbers(t === 'edit')  // edit screens default to line numbers on (#57)
     if (t === 'logs')               fetchLogs()
@@ -499,6 +511,29 @@ export function ActionModal() {
     else if (fmt === 'describe') fetchDescribe()
     else                         fetchYaml()
   }, [modal?.item?.id, modal?.type, viewFormat, editMode, isInspect])
+
+  // AWS inspect (module #2): one fetch fills DESCRIBE + JSON + TAGS (the response carries all
+  // three). Unlike k8s inspect, there's no per-format lazy fetch - the views just toggle locally.
+  useEffect(() => {
+    if (!modal || !isAwsInspect) return
+    let cancelled = false
+    setLoading(true); setFetchError(null)
+    const { resource, item } = modal
+    const url = `/api/aws/describe/${resource}/${encodeURIComponent(item.region || '')}/${encodeURIComponent(item.id)}`
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return
+        if (data.error) setFetchError(data.error)
+        setJsonContent(data.json || '')
+        setDescribeContent(data.describe || '')
+        const tags = data.tags || {}
+        setAwsTagsText(Object.keys(tags).sort().map(k => `${k}: ${tags[k]}`).join('\n'))
+      })
+      .catch(err => { if (!cancelled) setFetchError(err.message) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [modal?.item?.id, modal?.type, isAwsInspect])
 
   // Seed the edit buffer from the active format's raw content. Re-runs if the fetch
   // arrives after edit opens (e.g. describe→edit forces a fresh yaml fetch). Content
@@ -574,13 +609,13 @@ export function ActionModal() {
       ? (logFilter ? filteredLogLines.join('\n') : content)
       : isPolicy ? policyToText(policyData)
       : (isInspect && editMode) ? editContent
-      : isInspect ? displayContent
+      : (isInspect || isAwsInspect) ? displayContent
       : content
     if (!text) return
     navigator.clipboard?.writeText(text)
     setCopyFlash(true)
     setTimeout(() => setCopyFlash(false), 1200)
-  }, [modal, content, logFilter, filteredLogLines, isInspect, isPolicy, policyData, editMode, editContent, displayContent])
+  }, [modal, content, logFilter, filteredLogLines, isInspect, isAwsInspect, isPolicy, policyData, editMode, editContent, displayContent])
 
   // ── Vim key handler ───────────────────────────────────────────────────────
 
@@ -591,6 +626,7 @@ export function ActionModal() {
       const tag     = document.activeElement?.tagName
       const inInput = tag === 'INPUT' || tag === 'SELECT'
       const inspect = modal.type === 'describe' || modal.type === 'yaml' || modal.type === 'edit'
+      const awsInspect = modal.type === 'aws-inspect'
 
       // Edit mode: CodeMirror owns every key (vim motions/operators, Esc, ':' ex,
       // '/' search, '?' help). Yield entirely so nothing here intercepts first.
@@ -625,6 +661,17 @@ export function ActionModal() {
           ? order[(i - 1 + order.length) % order.length]
           : order[(i + 1) % order.length]
         setViewFormat(next)
+        return
+      }
+
+      // AWS inspect: cycle DESCRIBE / JSON / TAGS (no yaml, no edit - module #2)
+      if (awsInspect && e.key === 'Tab') {
+        e.preventDefault(); e.stopPropagation()
+        const order = ['describe', 'json', 'tags']
+        const i = order.indexOf(viewFormat)
+        setViewFormat(e.shiftKey
+          ? order[(i - 1 + order.length) % order.length]
+          : order[(i + 1) % order.length])
         return
       }
 
@@ -765,7 +812,10 @@ export function ActionModal() {
   const isHelm = type.startsWith('helm-')
   // Inspect view color tracks the active format (describe = purple, yaml/json/edit = cyan).
   const inspectColor = editMode ? 'var(--mz-accent)' : viewFormat === 'describe' ? 'var(--mz-alt)' : 'var(--mz-accent)'
+  // AWS inspect: describe = purple, json = cyan, tags = orange.
+  const awsInspectColor = viewFormat === 'describe' ? 'var(--mz-alt)' : viewFormat === 'tags' ? 'var(--mz-orange)' : 'var(--mz-accent)'
   const lineColor = type === 'logs' ? 'var(--mz-ok)'
+    : isAwsInspect ? awsInspectColor
     : isInspect ? inspectColor
     : isPolicy ? 'var(--mz-orange)'
     : (type === 'helm-values' || type === 'helm-manifest') ? 'var(--mz-accent)'
@@ -778,6 +828,7 @@ export function ActionModal() {
     : type === 'helm-manifest' ? 'MANIFEST' : type === 'helm-notes' ? 'NOTES'
     : type === 'helm-history' ? 'HISTORY'
     : isPolicy ? (modal.whoami ? 'ACCESS REVIEW' : 'POLICY')
+    : isAwsInspect ? viewFormat.toUpperCase()
     : isInspect ? (editMode ? `EDIT ${viewFormat.toUpperCase()}` : viewFormat.toUpperCase())
     : type.toUpperCase()
 
@@ -815,7 +866,7 @@ export function ActionModal() {
         style={{
           position: 'relative', display: 'flex', flexDirection: 'column',
           borderRadius: 8, overflow: 'hidden',
-          width: (isYamlOrEdit || type === 'helm-history') ? 'min(920px, 94vw)' : 'min(860px, 92vw)',
+          width: (isYamlOrEdit || isAwsInspect || type === 'helm-history') ? 'min(920px, 94vw)' : 'min(860px, 92vw)',
           height: 'min(640px, 86vh)',
           background: 'rgba(var(--mz-surface-rgb),0.98)',
           // Consistent modal glow (#19): same border/shadow strength as the menu modals,
@@ -1018,6 +1069,21 @@ export function ActionModal() {
                   showLineNumbers={showLineNumbers}
                   matchRefs={matchRefs}
                   emptyLabel={`No ${viewFormat}.`}
+                />
+              )}
+
+              {/* AWS inspect (module #2) - DESCRIBE / JSON / TAGS read view. JSON & TAGS render
+                  through the yaml renderer (key: value coloring); DESCRIBE through the describe one. */}
+              {isAwsInspect && (
+                <ContentLines
+                  lines={contentLines}
+                  kind={viewFormat === 'describe' ? 'describe' : 'yaml'}
+                  search={activeSearch}
+                  lineToMatchIdx={lineToMatchIdx}
+                  matchIndex={matchIndex}
+                  showLineNumbers={showLineNumbers}
+                  matchRefs={matchRefs}
+                  emptyLabel={viewFormat === 'tags' ? 'No tags.' : `No ${viewFormat}.`}
                 />
               )}
 
@@ -1229,8 +1295,8 @@ export function ActionModal() {
                 )}
               </span>
             )}
-            {/* Line numbers toggle (inspect views, edit mode, helm yaml views) */}
-            {(isInspect || type === 'helm-values' || type === 'helm-manifest') && (
+            {/* Line numbers toggle (inspect views, edit mode, helm yaml views, aws inspect) */}
+            {(isInspect || isAwsInspect || type === 'helm-values' || type === 'helm-manifest') && (
               <button onClick={() => setShowLineNumbers(v => !v)} title="Toggle line numbers"
                 style={{
                   fontSize: 10, padding: '1px 7px', borderRadius: 3, cursor: 'pointer',
@@ -1243,7 +1309,7 @@ export function ActionModal() {
             {/* Copy button - read views + logs/helm only. Hidden in edit mode (#16): the
                 editor owns the buffer (yank/registers handle copying), and a Copy chip there
                 competes with the Apply/VIM controls. */}
-            {((isInspect ? (!editMode && !!displayContent) : ((type === 'logs' || isHelm) && content)) || (isPolicy && policyData)) && !loading && (
+            {((isInspect ? (!editMode && !!displayContent) : ((type === 'logs' || isHelm) && content)) || (isAwsInspect && !!displayContent) || (isPolicy && policyData)) && !loading && (
               <button onClick={doCopy} style={{
                 fontSize: 10, padding: '1px 7px', borderRadius: 3, cursor: 'pointer',
                 color: copyFlash ? 'var(--mz-ok)' : 'var(--mz-accent-2)',
@@ -1268,6 +1334,7 @@ export function ActionModal() {
               {!editMode && !helmHistoryTable && <VimHint k="j/k" label="scroll" />}
               {!editMode && !helmHistoryTable && <VimHint k="gg/G" label="top/bottom" />}
               {isInspect && !editMode && <VimHint k="Tab" label="describe/yaml/json" />}
+              {isAwsInspect && <VimHint k="Tab" label="describe/json/tags" />}
               {(type === 'helm-values' || helmHistoryPeek) && <VimHint k="Tab" label="user/all" />}
               {/* The `e` edit hint moved to the dedicated ✎ Edit button (#24), which already
                   shows its shortcut - no need to repeat it in the left-hand hint cluster. */}
@@ -1305,6 +1372,23 @@ export function ActionModal() {
                     border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
                   }}>{fmt.toUpperCase()}</button>
                 ))}
+              </div>
+            )}
+            {/* AWS inspect: DESCRIBE / JSON / TAGS toggle (module #2). No edit, no yaml. */}
+            {isAwsInspect && !loading && (
+              <div style={{ display: 'flex', borderRadius: 3, overflow: 'hidden', border: '1px solid rgba(var(--mz-accent-rgb),0.18)' }}>
+                {['describe', 'json', 'tags'].map(fmt => {
+                  const col = fmt === 'describe' ? 'var(--mz-alt)' : fmt === 'tags' ? 'var(--mz-orange)' : 'var(--mz-accent)'
+                  const colRgb = fmt === 'describe' ? 'var(--mz-alt-rgb)' : fmt === 'tags' ? 'var(--mz-orange-rgb)' : 'var(--mz-accent-rgb)'
+                  return (
+                    <button key={fmt} onClick={() => setViewFormat(fmt)} style={{
+                      fontSize: 9, padding: '2px 8px', cursor: 'pointer', letterSpacing: '0.08em',
+                      color: viewFormat === fmt ? col : 'var(--mz-text-dim)',
+                      background: viewFormat === fmt ? `rgba(${colRgb},0.15)` : 'transparent',
+                      border: 'none', fontFamily: 'inherit', transition: 'all 0.15s',
+                    }}>{fmt.toUpperCase()}</button>
+                  )
+                })}
               </div>
             )}
             {/* Edit button (#15) - a real button for the `e` shortcut, so non-vim/k9s users

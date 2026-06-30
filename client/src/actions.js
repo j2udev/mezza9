@@ -103,6 +103,14 @@ export const OBJECT_ACTIONS = [
     run: s => { const c = s.getItems().find(i => i.id === s.selectedId); if (c) s.fetchCrdResources(c.group, c.version, c.plural) } },
 
   // ── AWS (module #2) ──────────────────────────────────────
+  // Inspect an AWS resource in depth - the AWS-native analog of describe/yaml (#2). Opens the shared
+  // ActionModal in 'aws-inspect' mode: DESCRIBE / JSON (the raw Describe*/Get* output, the "yaml"
+  // analog) / TAGS. READ only (no edit, no secret decode). `d` mirrors k8s describe muscle memory;
+  // Enter also opens it in useKeys for every non-drillable AWS type (s3buckets drills instead).
+  // s3objects is excluded (its inspect would be HeadObject metadata - deferred).
+  { id: 'aws-inspect', label: 'Inspect', hint: 'd', color: 'var(--mz-alt)', group: 'Inspect',
+    when: r => AWS_RESOURCE_KEYS.has(r) && r !== 's3objects',
+    key: e => e.key === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey, run: s => s.openModal('aws-inspect') },
   // S3 copy/download/upload - same Shift+C muscle memory as the kubectl-cp copy above, but the
   // implementation is bucket/key blob get/put, not exec+tar (friction #5). `when` is disjoint from
   // the kubectl 'copy' action's (pods/containers), so the shared Shift+C never collides.

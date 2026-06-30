@@ -90,6 +90,88 @@ function mkObj(bucket, key, bytes, sc, age) {
   }]
 }
 
+// Inspect detail for one resource (module #2). Returns a believable raw-API-shaped object with a
+// Tags field, so the AWS inspect modal (DESCRIBE / JSON / TAGS) is fully testable with zero
+// credentials (MEZZ_AWS_DEMO=1). Looks the selected row up by id in the demo list, then expands it
+// into the richer shape the live Describe*/Get* calls would return. Tags follow the live shape per
+// service: an array of {Key,Value} for the EC2 family + S3, a flat map for Lambda.
+export function getMockAwsDescribe(service, id) {
+  const rows = getMockAwsResources()[service] || []
+  const row = rows.find(r => r.id === id) || rows[0] || { id, name: id }
+  const nameTags = (extra = {}) => [{ Key: 'Name', Value: row.name }, { Key: 'env', Value: 'prod' }, { Key: 'managed-by', Value: 'mezza9' }, ...Object.entries(extra).map(([Key, Value]) => ({ Key, Value }))]
+  const num = (s) => parseInt(String(s), 10) || 0
+  switch (service) {
+    case 'ec2instances': return {
+      InstanceId: row.id, InstanceType: row.type, Architecture: 'x86_64',
+      State: { Code: 16, Name: row.state }, ImageId: 'ami-0c7217cdde317cfec',
+      Placement: { AvailabilityZone: row.az, Tenancy: 'default', GroupName: '' },
+      PrivateIpAddress: row.privateIp || undefined, PublicIpAddress: row.publicIp || undefined,
+      PrivateDnsName: row.privateIp ? `ip-${row.privateIp.replace(/\./g, '-')}.ec2.internal` : undefined,
+      SubnetId: 'subnet-0a1b2c3d4e5f60011', VpcId: 'vpc-0a1b2c3d4e5f60002',
+      LaunchTime: row.launchTime, Monitoring: { State: 'disabled' },
+      RootDeviceName: '/dev/xvda', RootDeviceType: 'ebs', EbsOptimized: false,
+      SecurityGroups: [{ GroupId: 'sg-0a1b2c3d4e5f60002', GroupName: 'web-sg' }],
+      IamInstanceProfile: { Arn: 'arn:aws:iam::123456789012:instance-profile/app', Id: 'AIPA0000EXAMPLE' },
+      Tags: nameTags(),
+    }
+    case 'ebsvolumes': return {
+      VolumeId: row.id, Size: num(row.size), VolumeType: row.volType, State: row.state,
+      AvailabilityZone: row.az, Encrypted: true, KmsKeyId: 'arn:aws:kms:us-east-1:123456789012:key/abcd-1234',
+      Iops: row.volType === 'io2' ? 10000 : 3000, Throughput: row.volType === 'gp3' ? 125 : undefined,
+      SnapshotId: 'snap-0a1b2c3d4e5f6a7b8', CreateTime: '2025-05-24T00:00:00Z', MultiAttachEnabled: false,
+      Attachments: row.attachedTo ? [{ InstanceId: row.attachedTo, Device: '/dev/xvda', State: 'attached', DeleteOnTermination: true }] : [],
+      Tags: [{ Key: 'Name', Value: row.name }],
+    }
+    case 'lambdafunctions': return {
+      FunctionName: row.name, FunctionArn: `arn:aws:lambda:${row.region}:123456789012:function:${row.name}`,
+      Runtime: row.runtime === 'image' ? undefined : row.runtime, PackageType: row.runtime === 'image' ? 'Image' : 'Zip',
+      Handler: row.handler || undefined, MemorySize: num(row.memory), Timeout: num(row.timeout),
+      State: row.state, LastModified: '2025-06-10T00:00:00Z', CodeSize: 10485760,
+      Role: 'arn:aws:iam::123456789012:role/lambda-exec', Architectures: ['x86_64'],
+      TracingConfig: { Mode: 'PassThrough' }, Environment: { Variables: { LOG_LEVEL: 'info', STAGE: 'prod' } },
+      Code: { RepositoryType: 'S3', Location: 'https://prod-iad-c1-lambda.s3.amazonaws.com/snapshots/...' },
+      Tags: { Name: row.name, env: 'prod', 'managed-by': 'mezza9' },
+    }
+    case 'vpcs': return {
+      VpcId: row.vpcId, CidrBlock: row.cidr, State: row.state, IsDefault: row.isDefault === 'default',
+      InstanceTenancy: row.tenancy, DhcpOptionsId: 'dopt-0a1b2c3d4e5f60001',
+      CidrBlockAssociationSet: [{ AssociationId: 'vpc-cidr-assoc-0a1b2c3d', CidrBlock: row.cidr, CidrBlockState: { State: 'associated' } }],
+      Tags: row.name && row.name !== row.vpcId ? [{ Key: 'Name', Value: row.name }] : [],
+    }
+    case 'securitygroups': {
+      const inbound = [
+        { IpProtocol: 'tcp', FromPort: 443, ToPort: 443, IpRanges: [{ CidrIp: '0.0.0.0/0', Description: 'https' }] },
+        { IpProtocol: 'tcp', FromPort: 80, ToPort: 80, IpRanges: [{ CidrIp: '0.0.0.0/0', Description: 'http' }] },
+        { IpProtocol: 'tcp', FromPort: 22, ToPort: 22, IpRanges: [{ CidrIp: '10.0.0.0/8', Description: 'ssh internal' }] },
+      ].slice(0, row.inbound || 0)
+      return {
+        GroupId: row.groupId, GroupName: row.name, Description: row.description, VpcId: row.vpcId,
+        OwnerId: '123456789012', IpPermissions: inbound,
+        IpPermissionsEgress: [{ IpProtocol: '-1', IpRanges: [{ CidrIp: '0.0.0.0/0', Description: 'all egress' }] }],
+        Tags: [{ Key: 'Name', Value: row.name }],
+      }
+    }
+    case 'elasticips': return {
+      PublicIp: row.publicIp, AllocationId: row.allocationId, Domain: row.scope,
+      InstanceId: row.associatedTo && row.associatedTo.startsWith('i-') ? row.associatedTo : undefined,
+      NetworkInterfaceId: row.associatedTo && row.associatedTo.startsWith('eni-') ? row.associatedTo : undefined,
+      AssociationId: row.associatedTo ? 'eipassoc-0a1b2c3d4e5f60001' : undefined,
+      PrivateIpAddress: row.privateIp || undefined, NetworkBorderGroup: row.region, PublicIpv4Pool: 'amazon',
+      Tags: [{ Key: 'Name', Value: row.name }],
+    }
+    case 's3buckets': return {
+      Name: row.id, LocationConstraint: row.region === 'us-east-1' ? '' : row.region, CreationDate: row.created,
+      Versioning: { Status: 'Enabled', MFADelete: 'Disabled' },
+      Encryption: { Rules: [{ ApplyServerSideEncryptionByDefault: { SSEAlgorithm: 'aws:kms', KMSMasterKeyID: 'arn:aws:kms:us-east-1:123456789012:key/abcd-1234' }, BucketKeyEnabled: true }] },
+      PublicAccessBlock: { BlockPublicAcls: true, IgnorePublicAcls: true, BlockPublicPolicy: true, RestrictPublicBuckets: true },
+      PolicyStatus: { IsPublic: false },
+      Acl: { Owner: { DisplayName: 'mezza9', ID: 'abc123def456' }, Grants: [{ Grantee: { Type: 'CanonicalUser', DisplayName: 'mezza9', ID: 'abc123def456' }, Permission: 'FULL_CONTROL' }] },
+      Tags: [{ Key: 'Name', Value: row.name }, { Key: 'env', Value: row.id.includes('prod') ? 'prod' : 'shared' }],
+    }
+    default: return { id, name: row.name, Tags: [] }
+  }
+}
+
 // A single object's bytes, for the demo DOWNLOAD path (so Shift+C download works with no creds).
 export function getMockS3Object(bucket, key) {
   const body = Buffer.from(

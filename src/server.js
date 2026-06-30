@@ -16,7 +16,7 @@ import cors from 'cors'
 import yaml from 'js-yaml'
 import { fetchResources, fetchCrdInstances, getExec, addEphemeralDebugContainer, fetchPolicy, whoAmI } from './k8s.js'
 import { getMockLogs, getMockDescribe, getMockYaml, getMockCrdResources, getMockHelmValues, getMockHelmAllValues, getMockHelmManifest, getMockHelmHistory, getMockHelmNotes, getMockPolicy, getMockWhoAmI } from './mock.js'
-import { fetchAwsResources, fetchS3Objects, ec2Action, s3GetObject, s3PutObject, RESOURCE_KEYS as AWS_RESOURCE_KEYS } from './aws.js'
+import { fetchAwsResources, fetchS3Objects, fetchAwsDescribe, ec2Action, s3GetObject, s3PutObject, RESOURCE_KEYS as AWS_RESOURCE_KEYS } from './aws.js'
 
 // archiver (7.x) is CommonJS; load it via createRequire since this module is ESM. It streams
 // directory/file downloads as tar / tar.gz / zip entirely in-process (task 108), so no host
@@ -953,6 +953,17 @@ app.get('/api/rbac/can-i', async (req, res) => {
 // k8s /:resource/:namespace/:name route shape can't carry `region`, so AWS gets its own routes
 // (friction: provider-specific resource addressing). All inherit the /api/* auth gate automatically.
 // Reads work in demo; writes refuse in demo (the helpers self-guard), mirroring the k8s posture.
+
+// GET a single resource's full detail for the inspect modal (module #2): { json, tags, describe }.
+// The AWS-native analog of /api/describe|yaml|json - READ only (no edit route, AWS resources mutate
+// via specific Modify/Put calls). region + id are smuggled in the path since AWS addressing doesn't
+// fit /:resource/:namespace/:name. The helper self-tiers live -> mock, so no latest.demoMode check.
+app.get('/api/aws/describe/:service/:region/:id', async (req, res) => {
+  const { service, region, id } = req.params
+  if (!AWS_RESOURCE_KEYS.includes(service)) return res.status(400).json({ error: 'Unknown AWS service' })
+  if (!validId(region) || !validId(id)) return res.status(400).json({ error: 'Invalid region or id' })
+  res.json(await fetchAwsDescribe(service, region, id))
+})
 
 // GET objects in a bucket (the lazy Enter-drill target; s3objects is never broadcast in the stream).
 app.get('/api/aws/s3/:bucket', async (req, res) => {

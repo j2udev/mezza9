@@ -239,6 +239,14 @@ export function useKeys() {
             break
           }
 
+          // Other AWS resources: nothing to drill into (no embedded children), so Enter opens the
+          // inspect modal - the AWS analog of describe/yaml (module #2). Mirrors the s3buckets
+          // special-case above; sits before the generic k8s DRILLABLE block.
+          if (s.activeProvider === 'aws') {
+            s.openModal('aws-inspect')
+            break
+          }
+
           // Drill-down into related resources
           if (DRILLABLE.has(s.activeResource)) {
             const item = s.getFilteredItems().find(i => i.id === s.selectedId)

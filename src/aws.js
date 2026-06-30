@@ -7,7 +7,7 @@
 // -> empty. The AWS SDK v3 is imported LAZILY (dynamic import inside loadSdk), so a build/run with
 // neither the deps installed nor credentials present still boots cleanly and serves empty/mock.
 
-import { getMockAwsResources, getMockS3Objects, getMockS3Object } from './aws-mock.js'
+import { getMockAwsResources, getMockS3Objects, getMockS3Object, getMockAwsDescribe } from './aws-mock.js'
 
 // Demo gate is SEPARATE from k8s MEZZ_DEMO on purpose: the two providers have independent
 // connection/health state (you may run live k8s + mock AWS, or vice versa). One global demoMode
@@ -119,6 +119,21 @@ const SERVICES = [
         }
       }))
     },
+    // Inspect (module #2): aggregate a bucket's config from several Get* calls into one object.
+    // Each sub-call is optional - an unset versioning/encryption/policy returns a 404 we swallow.
+    async describe(clients, id) {
+      const { s3 } = await loadSdk()
+      const detail = { Name: id }
+      const safe = async (label, fn) => { try { detail[label] = await fn() } catch { /* optional / unset */ } }
+      await safe('LocationConstraint', async () => (await clients.s3.send(new s3.GetBucketLocationCommand({ Bucket: id }))).LocationConstraint || 'us-east-1')
+      await safe('Versioning',         async () => { const v = await clients.s3.send(new s3.GetBucketVersioningCommand({ Bucket: id })); return { Status: v.Status || 'Disabled', MFADelete: v.MFADelete || 'Disabled' } })
+      await safe('Encryption',         async () => (await clients.s3.send(new s3.GetBucketEncryptionCommand({ Bucket: id }))).ServerSideEncryptionConfiguration)
+      await safe('PublicAccessBlock',  async () => (await clients.s3.send(new s3.GetPublicAccessBlockCommand({ Bucket: id }))).PublicAccessBlockConfiguration)
+      await safe('PolicyStatus',       async () => (await clients.s3.send(new s3.GetBucketPolicyStatusCommand({ Bucket: id }))).PolicyStatus)
+      await safe('Acl',                async () => { const a = await clients.s3.send(new s3.GetBucketAclCommand({ Bucket: id })); return { Owner: a.Owner, Grants: a.Grants } })
+      await safe('Tags',              async () => (await clients.s3.send(new s3.GetBucketTaggingCommand({ Bucket: id }))).TagSet)
+      return detail
+    },
   },
   {
     key: 'ec2instances',
@@ -146,6 +161,14 @@ const SERVICES = [
       } while (token)
       return rows
     },
+    // Inspect: the raw Instance object (much richer than the flattened list row).
+    async describe(clients, id) {
+      const { ec2 } = await loadSdk()
+      const out = await clients.ec2.send(new ec2.DescribeInstancesCommand({ InstanceIds: [id] }))
+      const inst = (out.Reservations || []).flatMap(r => r.Instances || [])[0]
+      if (!inst) throw new Error(`Instance ${id} not found`)
+      return inst
+    },
   },
   // ── COMPUTE ──────────────────────────────────────────────
   {
@@ -170,6 +193,13 @@ const SERVICES = [
       } while (token)
       return rows
     },
+    async describe(clients, id) {
+      const { ec2 } = await loadSdk()
+      const out = await clients.ec2.send(new ec2.DescribeVolumesCommand({ VolumeIds: [id] }))
+      const vol = (out.Volumes || [])[0]
+      if (!vol) throw new Error(`Volume ${id} not found`)
+      return vol
+    },
   },
   {
     key: 'lambdafunctions',
@@ -191,6 +221,13 @@ const SERVICES = [
         marker = out.NextMarker
       } while (marker)
       return rows
+    },
+    // Inspect: GetFunction returns Configuration + Code + Tags (a map). Flatten the configuration
+    // to the top so the JSON reads naturally; Tags stays a map (tagsToMap handles both shapes).
+    async describe(clients, id) {
+      const { lambda } = await loadSdk()
+      const out = await clients.lambda.send(new lambda.GetFunctionCommand({ FunctionName: id }))
+      return { ...(out.Configuration || {}), Code: out.Code, Concurrency: out.Concurrency, Tags: out.Tags }
     },
   },
   // ── NETWORK ──────────────────────────────────────────────
@@ -215,6 +252,13 @@ const SERVICES = [
       } while (token)
       return rows
     },
+    async describe(clients, id) {
+      const { ec2 } = await loadSdk()
+      const out = await clients.ec2.send(new ec2.DescribeVpcsCommand({ VpcIds: [id] }))
+      const vpc = (out.Vpcs || [])[0]
+      if (!vpc) throw new Error(`VPC ${id} not found`)
+      return vpc
+    },
   },
   {
     key: 'securitygroups',
@@ -237,6 +281,15 @@ const SERVICES = [
       } while (token)
       return rows
     },
+    // Inspect: the full group, including the inbound/outbound rule sets (IpPermissions) the
+    // list row only counts - the most useful detail for a security group.
+    async describe(clients, id) {
+      const { ec2 } = await loadSdk()
+      const out = await clients.ec2.send(new ec2.DescribeSecurityGroupsCommand({ GroupIds: [id] }))
+      const sg = (out.SecurityGroups || [])[0]
+      if (!sg) throw new Error(`Security group ${id} not found`)
+      return sg
+    },
   },
   {
     key: 'elasticips',
@@ -254,6 +307,16 @@ const SERVICES = [
           status: assoc ? 'Associated' : 'Unassociated',
         }
       })
+    },
+    // Inspect: re-query the single address. VPC EIPs are keyed by AllocationId; classic EIPs
+    // (no allocation id) by PublicIp - the row id reflects whichever it is.
+    async describe(clients, id) {
+      const { ec2 } = await loadSdk()
+      const filter = id.startsWith('eipalloc-') ? { AllocationIds: [id] } : { PublicIps: [id] }
+      const out = await clients.ec2.send(new ec2.DescribeAddressesCommand(filter))
+      const eip = (out.Addresses || [])[0]
+      if (!eip) throw new Error(`Elastic IP ${id} not found`)
+      return eip
     },
   },
 ]
@@ -298,6 +361,102 @@ export async function fetchAwsResources() {
     }
   })
   return out
+}
+
+// ── Inspect a single resource (module #2) ─────────────────────────────────────
+// The AWS-native analog of k8s describe/yaml: returns the resource's full detail as JSON (the
+// "yaml" analog - AWS is JSON-native so there is no yaml view), a curated DESCRIBE text, and the
+// resource's TAGS as a first-class map (tags are AWS's universal organizing dimension). READ-only:
+// no edit, no secret decode (see handoff-aws-inspect.md). Dispatches to the per-service describe()
+// on the SERVICES registry, falling back to the already-listed row when a service defines none.
+// 3-tier fallback like every other AWS helper: live -> mock (MEZZ_AWS_DEMO) -> error.
+export async function fetchAwsDescribe(service, region, id) {
+  const svc = SERVICES.find(s => s.key === service)
+  if (!svc) return { error: `Unknown AWS service: ${service}` }
+  let detail
+  const clients = await getClients()
+  if (!clients) {
+    if (!DEMO) return { error: lastError || 'No AWS connection.' }
+    detail = getMockAwsDescribe(service, id)
+  } else {
+    try {
+      detail = svc.describe
+        ? await svc.describe(clients, id, region || REGION)
+        : (await svc.list(clients)).find(r => r.id === id) || { id }
+    } catch (err) { return { error: err.message } }
+  }
+  if (!detail) return { error: `${service} ${id} not found` }
+  const tags = tagsToMap(detail.Tags)
+  let json
+  try { json = JSON.stringify(detail, null, 2) } catch { json = String(detail) }
+  return { json, tags, describe: formatAwsDescribe(detail, tags) }
+}
+
+// Normalize AWS's two tag shapes into a flat { key: value } map: the EC2-family `[{Key,Value}]`
+// array and Lambda's already-flat object map both collapse here.
+function tagsToMap(tags) {
+  if (!tags) return {}
+  if (Array.isArray(tags)) {
+    const m = {}
+    for (const t of tags) if (t && t.Key != null) m[t.Key] = t.Value ?? ''
+    return m
+  }
+  if (typeof tags === 'object') return { ...tags }
+  return {}
+}
+
+// Render a detail object as a kubectl-describe-style indented summary. Generic (works for any
+// service's shape) so "add inspect for a service" stays one describe() function - no per-service
+// formatter. Tags are rendered separately (the modal has a dedicated TAGS view) and omitted here.
+function formatAwsDescribe(detail, tags) {
+  const lines = []
+  const scalar = (v) => {
+    if (v == null) return ''
+    if (v instanceof Date) return v.toISOString()
+    if (typeof v === 'object') return JSON.stringify(v)
+    return String(v)
+  }
+  const walk = (obj, indent) => {
+    const pad = '  '.repeat(indent)
+    for (const [k, v] of Object.entries(obj)) {
+      if (indent === 0 && k === 'Tags') continue          // rendered as its own section below
+      if (v == null || v === '') continue
+      if (Array.isArray(v)) {
+        if (v.length === 0) continue
+        if (v.every(x => x === null || typeof x !== 'object')) {
+          lines.push(`${pad}${k}: ${v.join(', ')}`)
+        } else {
+          lines.push(`${pad}${k}:`)
+          v.slice(0, 50).forEach(x => {
+            if (x && typeof x === 'object' && !(x instanceof Date)) {
+              const entries = Object.entries(x).filter(([, vv]) => vv != null && vv !== '')
+              if (!entries.length) return
+              lines.push(`${pad}  - ${entries[0][0]}: ${scalar(entries[0][1])}`)
+              entries.slice(1).forEach(([ek, ev]) => lines.push(`${pad}    ${ek}: ${scalar(ev)}`))
+            } else {
+              lines.push(`${pad}  - ${scalar(x)}`)
+            }
+          })
+          if (v.length > 50) lines.push(`${pad}  … ${v.length - 50} more`)
+        }
+      } else if (v instanceof Date) {
+        lines.push(`${pad}${k}: ${v.toISOString()}`)
+      } else if (typeof v === 'object') {
+        if (Object.keys(v).length === 0) continue
+        lines.push(`${pad}${k}:`)
+        walk(v, indent + 1)
+      } else {
+        lines.push(`${pad}${k}: ${v}`)
+      }
+    }
+  }
+  walk(detail, 0)
+  const tagKeys = Object.keys(tags || {})
+  if (tagKeys.length) {
+    lines.push('Tags:')
+    tagKeys.sort().forEach(k => lines.push(`  ${k}: ${tags[k]}`))
+  }
+  return lines.join('\n')
 }
 
 // ── Lazy drilldown: a bucket's objects ───────────────────────────────────────
